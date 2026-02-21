@@ -18,7 +18,7 @@ class SeedPostCreate(BaseModel):
 class SeedFiles(BaseModel):
     """File handling configuration."""
 
-    exclude: list[str] = Field(default_factory=["__pycache__", "*.pyc", ".git"])
+    exclude: list[str] = Field(default=["__pycache__", "*.pyc", ".git"])
 
 
 class Seed(BaseModel):

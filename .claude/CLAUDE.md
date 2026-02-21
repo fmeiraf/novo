@@ -15,6 +15,7 @@ uv run novo search <query>     # Search experiments
 uv run novo delete <name>      # Delete experiment
 uv run novo open <name>        # Open experiment directory
 uv run novo seed list          # List available seeds
+uv run novo seed init <name>   # Scaffold a new empty seed
 uv run pytest                  # Run all tests
 uv run pytest tests/test_core  # Run core tests only
 uv run pytest -x               # Stop on first failure

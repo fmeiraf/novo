@@ -117,3 +117,56 @@ def test_config_set_bool_invalid(tmp_workspace):
     result = runner.invoke(app, ["config", "set", "defaults.auto_commit", "maybe"])
     assert result.exit_code == 1
     assert "Invalid value" in result.output
+
+
+# --- seed init tests ---
+
+
+def test_seed_init(tmp_workspace):
+    result = runner.invoke(app, ["seed", "init", "my-seed"])
+    assert result.exit_code == 0
+    assert "my-seed" in result.output
+    seed_dir = tmp_workspace.parent / "data" / "seeds" / "my-seed"
+    assert seed_dir.exists()
+    assert (seed_dir / "seed.toml").exists()
+    assert (seed_dir / "template").is_dir()
+
+
+def test_seed_init_with_description(tmp_workspace):
+    result = runner.invoke(app, ["seed", "init", "desc-seed", "--desc", "A test seed"])
+    assert result.exit_code == 0
+    toml_content = (tmp_workspace.parent / "data" / "seeds" / "desc-seed" / "seed.toml").read_text()
+    assert "A test seed" in toml_content
+
+
+def test_seed_init_with_path(tmp_workspace, tmp_path):
+    target = tmp_path / "custom-location"
+    result = runner.invoke(app, ["seed", "init", "path-seed", "--path", str(target)])
+    assert result.exit_code == 0
+    assert (target / "seed.toml").exists()
+    assert (target / "template").is_dir()
+
+
+def test_seed_init_duplicate(tmp_workspace):
+    runner.invoke(app, ["seed", "init", "dup-seed"])
+    result = runner.invoke(app, ["seed", "init", "dup-seed"])
+    assert result.exit_code == 1
+    assert "already exists" in result.output
+
+
+def test_seed_init_toml_content(tmp_workspace):
+    runner.invoke(app, ["seed", "init", "toml-seed", "--desc", "Check content"])
+    toml_path = tmp_workspace.parent / "data" / "seeds" / "toml-seed" / "seed.toml"
+    content = toml_path.read_text()
+    assert 'name = "toml-seed"' in content
+    assert 'description = "Check content"' in content
+    assert "# [seed.dependencies]" in content
+    assert "# [seed.post_create]" in content
+    assert "# [seed.files]" in content
+
+
+def test_seed_init_visible_in_list(tmp_workspace):
+    runner.invoke(app, ["seed", "init", "listed-seed", "--desc", "Should appear"])
+    result = runner.invoke(app, ["seed", "list"])
+    assert result.exit_code == 0
+    assert "listed-seed" in result.output

@@ -15,7 +15,7 @@ cli/
 ├── search.py       # novo search
 ├── open.py         # novo open + hidden _open-path
 ├── info.py         # novo info
-└── seed.py         # novo seed {list,add,create,remove}
+└── seed.py         # novo seed {list,init,add,create,remove}
 ```
 
 ## Commands
@@ -29,6 +29,7 @@ cli/
 | `novo open <name>` | `open.py` | Open experiment dir (requires shell integration) |
 | `novo info [name]` | `info.py` | Show experiment details, or workspace info if no name given |
 | `novo seed list` | `seed.py` | List available seeds |
+| `novo seed init <name>` | `seed.py` | Scaffold new empty seed (`--desc`, `--path`) |
 | `novo seed add <url>` | `seed.py` | Install seed from git URL |
 | `novo seed create <name>` | `seed.py` | Create seed from experiment (`--from`) |
 | `novo seed remove <name>` | `seed.py` | Remove user-installed seed |

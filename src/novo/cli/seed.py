@@ -37,6 +37,29 @@ def seed_list() -> None:
     rprint(table)
 
 
+@seed_app.command("init")
+def seed_init(
+    name: str = typer.Argument(help="Name for the new seed"),
+    description: str = typer.Option("", "--desc", "-d", help="Seed description"),
+    path: Optional[str] = typer.Option(None, "--path", "-p", help="Custom directory for the seed"),
+) -> None:
+    """Scaffold a new empty seed (seed.toml + template/)."""
+    from pathlib import Path
+
+    from novo.core.seed import init_seed
+
+    target = Path(path) if path else None
+
+    try:
+        seed = init_seed(name, description, target)
+        rprint(f"[green]Created seed:[/green] {seed.name}")
+        rprint(f"  [dim]Path:[/dim] {seed.path}")
+        rprint(f"  [dim]Next steps:[/dim] add template files to [cyan]template/[/cyan], edit [cyan]seed.toml[/cyan]")
+    except FileExistsError as e:
+        rprint(f"[red]Error:[/red] {e}")
+        raise typer.Exit(1)
+
+
 @seed_app.command("add")
 def seed_add(
     url: str = typer.Argument(help="Git URL of the seed repository"),

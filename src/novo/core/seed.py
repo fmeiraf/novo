@@ -181,6 +181,40 @@ def create_from_experiment(experiment_dir: Path, name: str, description: str = "
     return _load_seed_from_dir(target)
 
 
+def init_seed(name: str, description: str = "", path: Path | None = None) -> Seed:
+    """Scaffold a new empty seed with seed.toml and template/ directory."""
+    if path is None:
+        user_seeds = seeds_dir()
+        user_seeds.mkdir(parents=True, exist_ok=True)
+        target = user_seeds / name
+    else:
+        target = path
+
+    if target.exists():
+        raise FileExistsError(f"Seed '{name}' already exists")
+
+    target.mkdir(parents=True)
+    (target / "template").mkdir()
+
+    # Write seed.toml with structured section + commented-out reference sections
+    seed_data = {"seed": {"name": name, "description": description}}
+    toml_content = tomli_w.dumps(seed_data)
+    toml_content += (
+        "\n"
+        "# [seed.dependencies]\n"
+        '# packages = ["numpy", "pandas"]\n'
+        "\n"
+        "# [seed.post_create]\n"
+        '# commands = ["echo hello"]\n'
+        "\n"
+        "# [seed.files]\n"
+        '# exclude = ["__pycache__", "*.pyc", ".git"]\n'
+    )
+    (target / "seed.toml").write_text(toml_content)
+
+    return _load_seed_from_dir(target)
+
+
 def remove_seed(name: str) -> bool:
     """Remove a user-installed seed."""
     user_seeds = seeds_dir()
