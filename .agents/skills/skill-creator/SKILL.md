@@ -277,6 +277,16 @@ The script:
 
 After initialization, customize or remove the generated SKILL.md and example files as needed.
 
+#### Register in both `.agents` and `.claude`
+
+Skills must be available in both `.agents/skills/` (canonical location) and `.claude/skills/` (Claude Code discovery). After creating a skill in `.agents/skills/`, add a symlink in `.claude/skills/`:
+
+```bash
+ln -s ../../.agents/skills/<skill-name> .claude/skills/<skill-name>
+```
+
+Always do this in the same step as creating the skill — never leave a skill in only one location.
+
 ### Step 4: Edit the Skill
 
 When editing the (newly-generated or existing) skill, remember that the skill is being created for another instance of Claude to use. Include information that would be beneficial and non-obvious to Claude. Consider what procedural knowledge, domain-specific details, or reusable assets would help another Claude instance execute these tasks more effectively.
