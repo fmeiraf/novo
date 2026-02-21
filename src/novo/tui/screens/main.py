@@ -57,12 +57,14 @@ class MainScreen(Screen):
         card.update_experiment(event.experiment)
 
     def on_experiment_list_activated(self, event: ExperimentList.Activated) -> None:
-        """Open experiment when activated."""
+        """Open a new terminal window at the experiment directory."""
         from novo.core.experiment import get_path
+        from novo.utils.terminal import open_terminal_at
 
         path = get_path(event.experiment.name)
         if path:
-            self.app.exit(result=str(path))
+            open_terminal_at(path)
+            self.notify(f"Opened terminal at {path.name}")
 
     def on_search_bar_changed(self, event: SearchBar.Changed) -> None:
         """Filter experiment list based on search input."""

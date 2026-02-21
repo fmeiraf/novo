@@ -29,6 +29,7 @@ src/
 │   ├── utils/                   # Shared utilities
 │   │   ├── paths.py             # XDG path resolution (platformdirs)
 │   │   ├── shell.py             # Shell integration for `novo open`
+│   │   ├── terminal.py          # Terminal detection and window opening
 │   │   └── uv.py                # uv CLI wrapper (init, add, python)
 │   └── tui/                     # TUI layer (Textual)
 │       ├── app.py               # NovoApp entry
