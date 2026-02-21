@@ -33,4 +33,4 @@ def main(
 
 
 # Import and register subcommands
-from novo.cli import delete, info, list, new, open, search, seed  # noqa: E402, F401
+from novo.cli import config, delete, info, init, list, new, open, search, seed  # noqa: E402, F401

@@ -59,3 +59,61 @@ def test_info_workspace(tmp_workspace):
     result = runner.invoke(app, ["info"])
     assert result.exit_code == 0
     assert "Workspace" in result.output
+
+
+def test_init_with_path(tmp_workspace, tmp_path):
+    target = tmp_path / "my-workspace"
+    result = runner.invoke(app, ["init", str(target)])
+    assert result.exit_code == 0
+    assert target.exists()
+    assert "Workspace initialized" in result.output
+
+
+def test_init_default_cwd(tmp_workspace, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["init"])
+    assert result.exit_code == 0
+    assert "Workspace initialized" in result.output
+    # Verify config was saved with cwd path
+    get_result = runner.invoke(app, ["config", "get", "workspace.path"])
+    assert str(tmp_path) in get_result.output
+
+
+def test_config_show(tmp_workspace):
+    result = runner.invoke(app, ["config", "show"])
+    assert result.exit_code == 0
+    assert "workspace.path" in result.output
+    assert "defaults.seed" in result.output
+
+
+def test_config_get(tmp_workspace):
+    result = runner.invoke(app, ["config", "get", "defaults.seed"])
+    assert result.exit_code == 0
+    assert "default" in result.output
+
+
+def test_config_get_unknown_key(tmp_workspace):
+    result = runner.invoke(app, ["config", "get", "bad.key"])
+    assert result.exit_code == 1
+    assert "Unknown config key" in result.output
+
+
+def test_config_set_string(tmp_workspace, tmp_path):
+    target = str(tmp_path / "new-workspace")
+    runner.invoke(app, ["config", "set", "workspace.path", target])
+    result = runner.invoke(app, ["config", "get", "workspace.path"])
+    assert result.exit_code == 0
+    assert target in result.output
+
+
+def test_config_set_bool(tmp_workspace):
+    runner.invoke(app, ["config", "set", "defaults.auto_commit", "false"])
+    result = runner.invoke(app, ["config", "get", "defaults.auto_commit"])
+    assert result.exit_code == 0
+    assert "False" in result.output
+
+
+def test_config_set_bool_invalid(tmp_workspace):
+    result = runner.invoke(app, ["config", "set", "defaults.auto_commit", "maybe"])
+    assert result.exit_code == 1
+    assert "Invalid value" in result.output
