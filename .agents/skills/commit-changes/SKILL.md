@@ -1,6 +1,6 @@
 ---
 name: commit-changes
-description: Review staged and unstaged git changes before committing, assess whether documentation needs updating, and create a well-formatted commit. Use when the user asks to commit, save changes, or says "/commit-changes". Triggers on requests like "commit my changes", "commit this", "save my work", or any commit-related request.
+description: When the user asks to commit changes, save work, or make a git commit. Triggers on any commit-related request including "commit", "commit my changes", "commit this", "commit you changes", "save my work", "make a commit", "/commit-changes", or any variation of asking to commit code to git.
 ---
 
 # Commit Changes
@@ -20,44 +20,15 @@ git diff --cached
 git log --oneline -5
 ```
 
-Identify which files changed and what the changes do. Categorize by layer: `cli/`, `tui/`, `core/`, `models/`, `utils/`, `tests/`, `seeds/`, or other.
-
 ### 2. Assess documentation impact
 
-For each changed file, check whether the change affects anything described in the project documentation. The documentation files to consider are:
+Review the diffs against **all** documentation files in the project (`docs/`, `.claude/CLAUDE.md`, `README.md`, and any other docs that exist). For each doc file, check whether the changes affect anything it describes — structure, commands, conventions, models, patterns, etc.
 
-| File | Update when... |
-|------|----------------|
-| `docs/architecture.md` | New modules, changed module responsibilities, new data models, changed data flow, changed project structure |
-| `docs/development.md` | New commands, changed setup steps, new prerequisites, changed dev workflow |
-| `docs/coding-guidelines.md` | New conventions adopted, changed patterns, new layer rules |
-| `docs/testing.md` | New test patterns, changed fixtures, new test directories |
-| `.claude/CLAUDE.md` | New CLI commands, changed architecture diagram, changed core principles |
-| `README.md` | User-facing feature changes (if the file exists) |
+Purely internal changes (bug fixes, refactors within existing modules) typically need no doc updates. But any change that adds, removes, or alters something documented should be flagged.
 
-**Assessment rules:**
+If documentation updates are needed, make them immediately — do not ask, just update the docs as part of the commit.
 
-- Adding a new CLI command → update `docs/development.md` (commands list) and `.claude/CLAUDE.md` (commands table)
-- Adding a new module or file → update `docs/architecture.md` (project structure)
-- Changing a model schema → update `docs/architecture.md` (data models section)
-- Adding a new test fixture or pattern → update `docs/testing.md`
-- Changing layer boundaries or import rules → update `docs/coding-guidelines.md`
-- Purely internal changes (bug fixes, refactors within existing modules) → typically no doc updates needed
-
-### 3. Report findings
-
-Before committing, report to the user:
-
-1. **Summary of changes** — what was changed and why
-2. **Documentation impact** — list which docs need updating and why, or confirm none need changes
-3. **Proposed commit message** — following the project's conventional commit format: `<type>(<scope>): <description>`
-
-If documentation updates are needed, ask the user whether to:
-- Update the docs now before committing
-- Commit code changes first, then update docs in a separate commit
-- Skip documentation updates
-
-### 4. Commit
+### 3. Commit
 
 After the user confirms, stage and commit following the project's commit conventions:
 
