@@ -1,0 +1,12 @@
+[seed]
+name = "default"
+description = "Default experiment template with AI agent scaffolding"
+
+[seed.dependencies]
+packages = []
+
+[seed.post_create]
+commands = []
+
+[seed.files]
+exclude = ["__pycache__", "*.pyc", ".git"]

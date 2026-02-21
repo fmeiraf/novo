@@ -1,0 +1,100 @@
+Screen {
+    layout: vertical;
+}
+
+#header {
+    dock: top;
+    height: 1;
+    background: $primary;
+    color: $text;
+    content-align: center middle;
+    text-style: bold;
+    padding: 0 1;
+}
+
+#main-container {
+    layout: horizontal;
+    height: 1fr;
+}
+
+#experiment-list-panel {
+    width: 1fr;
+    min-width: 30;
+    border-right: solid $primary-lighten-2;
+}
+
+#experiment-detail-panel {
+    width: 1fr;
+    min-width: 30;
+    padding: 1 2;
+}
+
+#search-bar {
+    dock: top;
+    height: 3;
+    padding: 0 1;
+}
+
+#search-input {
+    width: 100%;
+}
+
+#status-bar {
+    dock: bottom;
+    height: 1;
+    background: $surface;
+    color: $text-muted;
+    padding: 0 1;
+}
+
+ExperimentList {
+    height: 1fr;
+}
+
+ExperimentList > .experiment-item {
+    height: 1;
+    padding: 0 1;
+}
+
+ExperimentList > .experiment-item.--highlight {
+    background: $accent;
+    color: $text;
+}
+
+ExperimentCard {
+    height: 1fr;
+    padding: 1;
+}
+
+ExperimentCard .label {
+    color: $text-muted;
+    text-style: bold;
+}
+
+ExperimentCard .value {
+    color: $text;
+}
+
+#new-experiment-modal {
+    align: center middle;
+    width: 60;
+    height: auto;
+    max-height: 80%;
+    border: solid $primary;
+    background: $surface;
+    padding: 1 2;
+}
+
+#confirm-modal {
+    align: center middle;
+    width: 50;
+    height: auto;
+    border: solid $error;
+    background: $surface;
+    padding: 1 2;
+}
+
+#seed-manager {
+    layout: vertical;
+    height: 100%;
+}
