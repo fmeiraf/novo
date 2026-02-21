@@ -1,5 +1,7 @@
 """Filterable experiment list widget with keyboard navigation."""
 
+from rich.text import Text
+
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.message import Message
@@ -7,6 +9,38 @@ from textual.widgets import OptionList
 from textual.widgets.option_list import Option
 
 from novo.models.experiment import Experiment
+
+# Tag badge colors: amber, cyan, teal, pink, purple
+TAG_COLORS = ["#FAC898", "#89DDFF", "#5DE4C7", "#D0679D", "#C792EA"]
+TAG_BG_COLORS = ["#3a2e1a", "#1a2e3a", "#1a3a32", "#3a1a2e", "#2e1a3a"]
+
+
+def _render_experiment(exp: Experiment) -> Text:
+    """Build a rich multi-line renderable for a list item."""
+    text = Text()
+
+    # Line 1: experiment name
+    text.append(f"  {exp.dir_name}\n", style="bold")
+
+    # Line 2: date + seed
+    created = exp.created_at.strftime("%b %d, %Y")
+    text.append(f"  {created}", style="dim")
+    text.append("  \u00b7  ", style="dim")
+    text.append(f"\u2736 {exp.seed}", style="dim")
+    text.append("\n")
+
+    # Line 3: tags as colored badges
+    if exp.tags:
+        text.append("  ")
+        for i, tag in enumerate(exp.tags):
+            color = TAG_COLORS[i % len(TAG_COLORS)]
+            bg = TAG_BG_COLORS[i % len(TAG_BG_COLORS)]
+            text.append(f" {tag} ", style=f"{color} on {bg}")
+            text.append(" ")
+    else:
+        text.append("  ")
+
+    return text
 
 
 class ExperimentList(OptionList):
@@ -64,8 +98,7 @@ class ExperimentList(OptionList):
         """Rebuild the option list."""
         self.clear_options()
         for exp in self._filtered:
-            tags = f" [{', '.join(exp.tags)}]" if exp.tags else ""
-            self.add_option(Option(f"{exp.dir_name}{tags}", id=exp.dir_name))
+            self.add_option(Option(_render_experiment(exp), id=exp.dir_name))
 
         if self._filtered and self.option_count > 0:
             self.highlighted = 0

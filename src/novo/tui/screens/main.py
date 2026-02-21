@@ -46,6 +46,11 @@ class MainScreen(Screen):
         # Update header
         self.app.title = f"novo - {len(experiments)} experiments"
 
+        # Show welcome screen when no experiments exist
+        if not experiments:
+            card = self.query_one("#experiment-card", ExperimentCard)
+            card.show_welcome()
+
     def on_experiment_list_selected(self, event: ExperimentList.Selected) -> None:
         """Update detail panel when selection changes."""
         card = self.query_one("#experiment-card", ExperimentCard)
