@@ -28,6 +28,11 @@ uv run pytest -x               # Stop on first failure
 | [docs/development.md](docs/development.md) | Setup, prerequisites, dev workflow |
 | [docs/coding-guidelines.md](docs/coding-guidelines.md) | Code style, patterns, conventions |
 | [docs/testing.md](docs/testing.md) | Test structure, fixtures, patterns |
+| [docs/cli.md](docs/cli.md) | CLI commands, Typer app, output patterns |
+| [docs/tui.md](docs/tui.md) | Textual app, screens, widgets, keybindings |
+| [docs/core.md](docs/core.md) | Business logic: experiment, seed, config, git |
+| [docs/models.md](docs/models.md) | Pydantic schemas: NovoConfig, Experiment, Seed |
+| [docs/utils.md](docs/utils.md) | XDG paths, uv wrapper, shell integration |
 
 ## Core Principles
 

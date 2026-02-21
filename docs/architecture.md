@@ -61,21 +61,17 @@ CLI (Typer)  ──→  Core  ←──  TUI (Textual)
 
 Both CLI and TUI call into Core. Neither accesses the filesystem directly — Core handles all I/O. Models are shared across all layers. Utils provides path resolution and subprocess wrappers used by Core.
 
-## Module Responsibilities
+## Component Documentation
 
-| Module | Responsibility |
-|--------|---------------|
-| `core/experiment.py` | Experiment CRUD: create, list_all, get, search, delete |
-| `core/seed.py` | List, apply, add (git clone), create (from experiment), remove seeds |
-| `core/config.py` | Load/save `config.toml` via `NovoConfig` model |
-| `core/workspace.py` | Ensure workspace directory exists, init git repo |
-| `core/git.py` | Subprocess wrappers: init, add_and_commit, remove_and_commit |
-| `utils/paths.py` | XDG paths: config_dir, data_dir, workspace, seeds |
-| `utils/uv.py` | Wrappers: uv_init, uv_add, list_python_versions, install_python |
-| `utils/shell.py` | Shell function for `novo open` (cd into experiment dir) |
-| `models/config.py` | `NovoConfig` with `WorkspaceConfig`, `DefaultsConfig`, `NamingConfig` |
-| `models/experiment.py` | `Experiment`: name, seed, tags, description, python, created_at, dir_name |
-| `models/seed.py` | `Seed`: name, description, dependencies, post_create, files |
+For detailed documentation on each layer, see:
+
+| Document | Description |
+|----------|-------------|
+| [cli.md](cli.md) | CLI commands, Typer app structure, patterns |
+| [tui.md](tui.md) | Textual app, screens, widgets, keybindings, styles |
+| [core.md](core.md) | Business logic: experiment CRUD, seed management, config, workspace, git |
+| [models.md](models.md) | Pydantic schemas: NovoConfig, Experiment, Seed |
+| [utils.md](utils.md) | XDG paths, uv wrapper, shell integration |
 
 ## Data Flow: Experiment Creation
 
