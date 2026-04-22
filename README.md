@@ -25,7 +25,7 @@ novo is distributed as a [uv tool](https://docs.astral.sh/uv/concepts/tools/) â€
 uv tool install novo
 
 # or from this repo
-uv tool install git+https://github.com/your-user/novo
+uv tool install git+https://github.com/fmeiraf/novo
 ```
 
 If `novo` isn't found after install, run `uv tool update-shell` once to add `~/.local/bin` to your `PATH`.
@@ -170,7 +170,7 @@ Deeper docs live in [`docs/`](docs/):
 Work on novo itself with an editable install so changes are picked up immediately:
 
 ```bash
-git clone https://github.com/your-user/novo
+git clone https://github.com/fmeiraf/novo
 cd novo
 uv tool install --editable .
 uv run pytest
