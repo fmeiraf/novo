@@ -1,14 +1,16 @@
-"""Read-only file tree preview widget."""
+"""File tree widgets — read-only preview and interactive directory tree."""
 
 from __future__ import annotations
 
 from fnmatch import fnmatch
 from pathlib import Path
+from typing import Iterable
 
 from rich.text import Text
 from rich.tree import Tree
 
-from textual.widgets import Static
+from textual.binding import Binding
+from textual.widgets import DirectoryTree, Static
 
 DEFAULT_EXCLUDES: tuple[str, ...] = (
     ".venv",
@@ -146,3 +148,27 @@ class FileTreeWidget(Static):
     def clear(self) -> None:
         """Clear the displayed tree."""
         self.update("")
+
+
+class FilteredDirectoryTree(DirectoryTree):
+    """An interactive DirectoryTree that hides the default exclude patterns."""
+
+    BINDINGS = [
+        Binding("j", "cursor_down", "Down", show=False),
+        Binding("k", "cursor_up", "Up", show=False),
+        Binding("h", "cursor_parent", "Parent", show=False),
+        Binding("l", "select_cursor", "Open/Expand", show=False),
+    ]
+
+    def __init__(
+        self,
+        path: str | Path,
+        *,
+        excludes: tuple[str, ...] = DEFAULT_EXCLUDES,
+        **kwargs,
+    ) -> None:
+        super().__init__(str(path), **kwargs)
+        self._excludes = excludes
+
+    def filter_paths(self, paths: Iterable[Path]) -> Iterable[Path]:
+        return [p for p in paths if not _excluded(p.name, self._excludes)]

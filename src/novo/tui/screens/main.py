@@ -2,17 +2,56 @@
 
 from pathlib import Path
 
+from textual import on
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import Screen
-from textual.widgets import Header, OptionList, Static, TabbedContent, TabPane
+from textual.widgets import (
+    DirectoryTree,
+    Header,
+    OptionList,
+    Static,
+    TabbedContent,
+    TabPane,
+    Tree,
+)
 from textual.widgets.option_list import Option
 
+from novo.models.seed import Seed
 from novo.tui.widgets.experiment_card import ExperimentCard
 from novo.tui.widgets.experiment_list import ExperimentList
-from novo.tui.widgets.file_tree import FileTreeWidget
+from novo.tui.widgets.file_preview import FilePreview
+from novo.tui.widgets.file_tree import FilteredDirectoryTree
 from novo.tui.widgets.search_bar import SearchBar
 from novo.tui.widgets.status_bar import StatusBar
+
+
+def _format_seed_detail(seed: Seed) -> str:
+    """Format the seed metadata block as Rich-markup text."""
+    packages = ", ".join(seed.dependencies.packages) or "none"
+    excludes = ", ".join(seed.files.exclude) or "none"
+
+    lines = [
+        f"[b]{seed.name}[/]",
+        "",
+        f"[b]Description:[/] {seed.description or 'none'}",
+        f"[b]Type:[/] {'built-in' if seed.builtin else 'user-installed'}",
+        f"[b]Packages:[/] {packages}",
+        f"[b]Excludes:[/] {excludes}",
+    ]
+
+    if seed.post_create.commands:
+        lines.append("")
+        lines.append("[b]Post-create:[/]")
+        for cmd in seed.post_create.commands:
+            lines.append(f"  [dim]$[/] {cmd}")
+    else:
+        lines.append("[b]Post-create:[/] none")
+
+    lines.append("")
+    lines.append(f"[b]Path:[/] [dim]{seed.path}[/]")
+
+    return "\n".join(lines)
 
 
 class MainScreen(Screen):
@@ -23,6 +62,7 @@ class MainScreen(Screen):
         ("d", "delete_experiment", "Delete"),
         ("e", "show_experiments", "Experiments"),
         ("s", "show_seeds", "Seeds"),
+        ("t", "focus_seed_tree", "Focus tree"),
         ("slash", "search", "Search"),
         ("question_mark", "help", "Help"),
     ]
@@ -45,10 +85,14 @@ class MainScreen(Screen):
                 with Horizontal(id="seed-container"):
                     with Vertical(id="seed-list-panel"):
                         yield OptionList(id="seed-list")
-                    with VerticalScroll(id="seed-detail-panel"):
-                        yield Static("Select a seed", id="seed-detail")
-                        yield Static("", id="seed-template-header")
-                        yield FileTreeWidget(id="seed-template-tree")
+                    with Vertical(id="seed-detail-panel"):
+                        with VerticalScroll(id="seed-meta-pane"):
+                            yield Static("Select a seed", id="seed-detail")
+                        yield Static("TEMPLATE", id="seed-template-header")
+                        yield Vertical(id="seed-tree-mount")
+                        yield Static("PREVIEW", id="seed-preview-header")
+                        with VerticalScroll(id="seed-preview-pane"):
+                            yield FilePreview(id="seed-preview")
         yield StatusBar(id="status-bar")
 
     def on_mount(self) -> None:
@@ -107,25 +151,47 @@ class MainScreen(Screen):
 
         seed = self._seeds[event.option_index]
         detail = self.query_one("#seed-detail", Static)
-        header = self.query_one("#seed-template-header", Static)
-        tree = self.query_one("#seed-template-tree", FileTreeWidget)
 
-        packages = ", ".join(seed.dependencies.packages) if seed.dependencies.packages else "none"
-        detail.update(
-            f"[b]{seed.name}[/]\n\n"
-            f"[b]Description:[/] {seed.description or 'none'}\n"
-            f"[b]Type:[/] {'built-in' if seed.builtin else 'user-installed'}\n"
-            f"[b]Packages:[/] {packages}\n"
-            f"[b]Path:[/] {seed.path}"
-        )
+        detail.update(_format_seed_detail(seed))
 
         template_dir = Path(seed.path) / "template"
-        if template_dir.is_dir():
-            header.update("TEMPLATE")
-            tree.show_path(template_dir)
-        else:
+        self._mount_seed_tree(template_dir if template_dir.is_dir() else None)
+
+        preview = self.query_one("#seed-preview", FilePreview)
+        preview.clear()
+
+    def _mount_seed_tree(self, path: Path | None) -> None:
+        mount = self.query_one("#seed-tree-mount", Vertical)
+        for child in list(mount.children):
+            child.remove()
+        header = self.query_one("#seed-template-header", Static)
+        if path is None:
             header.update("")
-            tree.clear()
+            return
+        header.update("TEMPLATE  [dim](t to focus, j/k navigate, l/enter expand)[/]")
+        tree = FilteredDirectoryTree(path, id="seed-tree")
+        mount.mount(tree)
+        self.call_after_refresh(tree.root.expand)
+
+    @on(Tree.NodeHighlighted, "#seed-tree")
+    def _on_seed_tree_highlight(self, event: Tree.NodeHighlighted) -> None:
+        self._preview_tree_node(event.node.data)
+
+    @on(DirectoryTree.FileSelected, "#seed-tree")
+    def _on_seed_tree_file_selected(self, event: DirectoryTree.FileSelected) -> None:
+        preview = self.query_one("#seed-preview", FilePreview)
+        preview.show_path(event.path)
+
+    def _preview_tree_node(self, data) -> None:
+        preview = self.query_one("#seed-preview", FilePreview)
+        if data is None:
+            preview.clear()
+            return
+        path = Path(data.path)
+        if path.is_file():
+            preview.show_path(path)
+        else:
+            preview.clear()
 
     # ---- Tab switching ----
 
@@ -137,6 +203,15 @@ class MainScreen(Screen):
 
     def action_show_seeds(self) -> None:
         self.query_one(TabbedContent).active = "tab-seeds"
+
+    def action_focus_seed_tree(self) -> None:
+        if self._active_tab() != "tab-seeds":
+            return
+        try:
+            tree = self.query_one("#seed-tree")
+        except Exception:
+            return
+        tree.focus()
 
     # ---- Actions ----
 
@@ -184,7 +259,7 @@ class MainScreen(Screen):
         self.notify(
             "[b]e[/]xperiments  [b]s[/]eeds  [b]n[/]ew  [b]enter[/] open  "
             "[b]d[/]elete  [b]/[/]search  [b]q[/]uit\n"
-            "[b]j/k[/] navigate  [b]?[/] this help",
+            "Seeds tab: [b]t[/] focus file tree, [b]l/enter[/] expand, [b]j/k[/] navigate",
             title="Keybindings",
-            timeout=5,
+            timeout=6,
         )

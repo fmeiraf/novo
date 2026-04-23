@@ -122,11 +122,17 @@ ExperimentCard {
     min-width: 30;
     padding: 1 2;
     background: $panel;
+    layout: vertical;
 }
 
 #seed-list {
     height: 1fr;
     background: $surface;
+}
+
+#seed-meta-pane {
+    height: auto;
+    max-height: 14;
 }
 
 #seed-detail {
@@ -140,6 +146,32 @@ ExperimentCard {
     text-style: bold;
 }
 
-#seed-template-tree {
+#seed-tree-mount {
+    height: 1fr;
+    min-height: 5;
+}
+
+#seed-tree {
+    height: 1fr;
+    background: $panel;
+    scrollbar-color: $primary 30%;
+    scrollbar-color-hover: $primary 60%;
+    scrollbar-color-active: $primary 80%;
+}
+
+#seed-preview-header {
     height: auto;
+    padding: 1 0 0 0;
+    color: $text-muted;
+    text-style: bold;
+}
+
+#seed-preview-pane {
+    height: 1fr;
+    min-height: 5;
+    background: $background;
+    border: round $primary 30%;
+    scrollbar-color: $primary 30%;
+    scrollbar-color-hover: $primary 60%;
+    scrollbar-color-active: $primary 80%;
 }
