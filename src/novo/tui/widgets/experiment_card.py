@@ -5,10 +5,11 @@ from datetime import datetime
 from rich.console import Group
 from rich.text import Text
 
-from textual.containers import Vertical
+from textual.containers import VerticalScroll
 from textual.widgets import Static
 
 from novo.models.experiment import Experiment
+from novo.tui.widgets.file_tree import build_tree
 
 # Tag badge colors: amber, cyan, teal, pink, purple (shared with experiment_list)
 TAG_COLORS = ["#FAC898", "#89DDFF", "#5DE4C7", "#D0679D", "#C792EA"]
@@ -85,7 +86,7 @@ def _tooling_indicator(label: str, present: bool) -> Text:
     return t
 
 
-class ExperimentCard(Vertical):
+class ExperimentCard(VerticalScroll):
     """Shows details for a selected experiment."""
 
     DEFAULT_CSS = """
@@ -207,5 +208,12 @@ class ExperimentCard(Vertical):
         parts.append(_section_header("TOOLING"))
         parts.append(_tooling_indicator("Claude Code", has_claude))
         parts.append(_tooling_indicator("Agents", has_agents))
+
+        # FILES section
+        if path and path.is_dir():
+            parts.append(Text(""))
+            parts.append(_section_header("FILES"))
+            parts.append(Text(""))
+            parts.append(build_tree(path))
 
         content.update(Group(*parts))

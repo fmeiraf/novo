@@ -25,10 +25,11 @@ class StatusBar(Static):
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self._default_text = "  ".join([
+            _badge("e", "experiments"),
+            _badge("s", "seeds"),
             _badge("n", "new"),
             _badge("enter", "open"),
             _badge("d", "delete"),
-            _badge("s", "seeds"),
             _badge("/", "search"),
             _badge("?", "help"),
             _badge("q", "quit"),

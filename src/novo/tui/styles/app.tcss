@@ -104,7 +104,42 @@ ExperimentCard {
     padding: 1 2;
 }
 
-#seed-manager {
-    layout: vertical;
-    height: 100%;
+#seed-container {
+    layout: horizontal;
+    height: 1fr;
+}
+
+#seed-list-panel {
+    width: auto;
+    min-width: 30;
+    max-width: 50;
+    background: $surface;
+    border-right: solid $primary 30%;
+}
+
+#seed-detail-panel {
+    width: 1fr;
+    min-width: 30;
+    padding: 1 2;
+    background: $panel;
+}
+
+#seed-list {
+    height: 1fr;
+    background: $surface;
+}
+
+#seed-detail {
+    height: auto;
+}
+
+#seed-template-header {
+    height: auto;
+    padding: 1 0 0 0;
+    color: $text-muted;
+    text-style: bold;
+}
+
+#seed-template-tree {
+    height: auto;
 }
