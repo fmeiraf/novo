@@ -1,9 +1,10 @@
-.PHONY: help publish-test watch build clean
+.PHONY: help publish-test build clean
+
+VERSION := $(shell grep '^version = ' pyproject.toml | head -1 | cut -d'"' -f2)
 
 help:
 	@echo "make build         build wheel + sdist locally into dist/"
-	@echo "make publish-test  push current branch and trigger TestPyPI workflow"
-	@echo "make watch         tail the latest workflow run"
+	@echo "make publish-test  push branch + tag v\$$(VERSION) to fire TestPyPI workflow"
 	@echo "make clean         remove dist/"
 
 build:
@@ -11,13 +12,13 @@ build:
 	uv build
 
 publish-test:
+	@echo "Publishing v$(VERSION)"
 	git push
-	gh workflow run workflow.yml --ref main
-	@echo "Triggered — 'make watch' to follow."
-
-watch:
-	@RUN_ID=$$(gh run list --workflow=workflow.yml --limit 1 --json databaseId --jq '.[0].databaseId'); \
-	gh run watch $$RUN_ID
+	git tag v$(VERSION)
+	git push origin v$(VERSION)
+	@echo ""
+	@echo "Tag pushed — workflow firing."
+	@echo "Watch: https://github.com/fmeiraf/novo/actions"
 
 clean:
 	rm -rf dist
