@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="https://raw.githubusercontent.com/fmeiraf/novo/main/public/novo_logo.png" alt="novo" width="160" />
+
 # novo
 
 **Spin up Python experiments in seconds, from anywhere in your terminal.**
