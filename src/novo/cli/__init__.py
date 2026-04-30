@@ -1,9 +1,8 @@
 """Main Typer app and root callback."""
 
-from typing import Optional
-
 import typer
 
+from novo import __version__
 from novo.utils.shell import get_shell_init
 
 app = typer.Typer(
@@ -14,10 +13,23 @@ app = typer.Typer(
 )
 
 
+def _version_callback(value: bool) -> None:
+    if value:
+        typer.echo(f"novo {__version__}")
+        raise typer.Exit()
+
+
 @app.callback()
 def main(
     ctx: typer.Context,
     shell_init: bool = typer.Option(False, "--shell-init", help="Print shell function for `novo open`"),
+    version: bool = typer.Option(
+        False,
+        "--version",
+        callback=_version_callback,
+        is_eager=True,
+        help="Show the novo version and exit.",
+    ),
 ) -> None:
     """Novo — manage experimental Python projects."""
     if shell_init:

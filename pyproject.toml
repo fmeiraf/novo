@@ -39,6 +39,7 @@ dependencies = [
 Homepage = "https://github.com/fmeiraf/novo"
 Repository = "https://github.com/fmeiraf/novo"
 Issues = "https://github.com/fmeiraf/novo/issues"
+Changelog = "https://github.com/fmeiraf/novo/blob/main/CHANGELOG.md"
 
 [project.scripts]
 novo = "novo.cli:app"
