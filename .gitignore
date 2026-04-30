@@ -29,3 +29,6 @@ Thumbs.db
 
 # uv
 uv.lock
+
+# Override global ignore so this seed template file ships in the wheel.
+!src/seeds/default/template/.claude/settings.local.json
