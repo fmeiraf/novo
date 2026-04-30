@@ -30,10 +30,6 @@ uv tool install git+https://github.com/fmeiraf/novo
 
 If `novo` isn't found after install, run `uv tool update-shell` once to add `~/.local/bin` to your `PATH`.
 
-```bash
-novo --version
-```
-
 That's it — the novo source tree is no longer needed. Use `novo` from any directory.
 
 ---
