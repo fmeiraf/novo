@@ -7,9 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-05-06
+
 ### Added
 - `novo --version` flag.
 - `__version__` exposed at `novo.__version__`, sourced from package metadata.
+- README "Configuration" section documenting all `config.toml` keys, defaults, and the Python-version resolution order.
+
+### Fixed
+- TUI welcome screen crashed on launch with `AttributeError: 'NovoConfig' object has no attribute 'workspace_dir'`. The detail panel now resolves the workspace path via `get_workspace_path()`.
 
 ## [0.1.1] - 2026-04-30
 
