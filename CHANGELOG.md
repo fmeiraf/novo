@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-05-06
+
+### Changed
+- Default seed's `.claude/CLAUDE.md` now imports the canonical root `AGENTS.md` via Claude Code's `@` import syntax instead of duplicating its content.
+
 ## [0.1.3] - 2026-05-06
 
 ### Added
