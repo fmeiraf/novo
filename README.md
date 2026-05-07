@@ -23,7 +23,7 @@ novo is distributed as a [uv tool](https://docs.astral.sh/uv/concepts/tools/) â€
 **Prerequisite:** [`uv`](https://docs.astral.sh/uv/getting-started/installation/) and `git`.
 
 ```bash
-# from PyPI (once published)
+# from PyPI
 uv tool install novo
 
 # or from this repo
