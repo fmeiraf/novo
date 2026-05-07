@@ -108,8 +108,10 @@ novo new "my-exp" --seed default --tag ml
 │   │   ├── .novo.toml           # Experiment metadata
 │   │   ├── .python-version
 │   │   ├── pyproject.toml       # Created by uv init
+│   │   ├── AGENTS.md            # From seed template (root agent instructions)
 │   │   ├── .claude/             # From seed template
-│   │   └── .agents/             # From seed template
+│   │   ├── .agents/             # From seed template
+│   │   └── .pi/                 # From seed template
 │   └── another-exp/             # No date prefix (--no-date)
 │       └── ...
 ├── seeds/                       # User-installed seeds

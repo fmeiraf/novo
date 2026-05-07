@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-05-06
+
+### Added
+- Default seed now scaffolds a root `AGENTS.md` (canonical agent instructions, read by pi and the agents.md spec).
+- Default seed adds `skills/` directories under `.claude/`, `.agents/`, and a new `.pi/` for the pi coding agent.
+- TUI experiment card and `novo info` show `.pi` and root `AGENTS.md` presence indicators.
+
+### Changed
+- Replaced unused `.agents/agents.toml` with `.agents/skills/` in the default seed.
+
 ## [0.1.2] - 2026-05-06
 
 ### Added

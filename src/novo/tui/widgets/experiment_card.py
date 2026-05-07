@@ -164,6 +164,8 @@ class ExperimentCard(VerticalScroll):
 
         has_claude = bool(path and (path / ".claude").exists())
         has_agents = bool(path and (path / ".agents").exists())
+        has_pi = bool(path and (path / ".pi").exists())
+        has_agents_md = bool(path and (path / "AGENTS.md").exists())
 
         parts: list[Text] = []
 
@@ -207,6 +209,8 @@ class ExperimentCard(VerticalScroll):
         parts.append(_section_header("TOOLING"))
         parts.append(_tooling_indicator("Claude Code", has_claude))
         parts.append(_tooling_indicator("Agents", has_agents))
+        parts.append(_tooling_indicator("pi", has_pi))
+        parts.append(_tooling_indicator("AGENTS.md", has_agents_md))
 
         # FILES section
         if path and path.is_dir():

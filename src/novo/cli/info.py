@@ -44,12 +44,12 @@ def _show_experiment_info(name: str) -> None:
     table.add_row("Created", exp.created_at.strftime("%Y-%m-%d %H:%M:%S"))
     table.add_row("Path", str(path) if path else "unknown")
 
-    # Check for .claude and .agents
+    # Check for agent tooling
     if path:
-        has_claude = (path / ".claude").exists()
-        has_agents = (path / ".agents").exists()
-        table.add_row(".claude", "yes" if has_claude else "no")
-        table.add_row(".agents", "yes" if has_agents else "no")
+        table.add_row(".claude", "yes" if (path / ".claude").exists() else "no")
+        table.add_row(".agents", "yes" if (path / ".agents").exists() else "no")
+        table.add_row(".pi", "yes" if (path / ".pi").exists() else "no")
+        table.add_row("AGENTS.md", "yes" if (path / "AGENTS.md").exists() else "no")
 
     rprint(Panel(table, title=f"Experiment: {exp.name}", border_style="cyan"))
 
