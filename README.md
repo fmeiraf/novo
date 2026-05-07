@@ -92,6 +92,60 @@ novo new churn-analysis --seed data-science
 
 ---
 
+## Configuration
+
+novo works out of the box, but a handful of settings let you tailor the defaults. They live in a single TOML file at `~/.config/novo/config.toml` (XDG-compliant; the exact path depends on your OS).
+
+| Key | Type | Default | What it does |
+|-----|------|---------|--------------|
+| `workspace.path` | str | `""` (XDG default) | Where experiments are created. Empty falls back to `~/.local/share/novo/workspace/`. Set by `novo init`. |
+| `defaults.seed` | str | `"default"` | Seed used when `novo new` is called without `--seed`. |
+| `defaults.python` | str | `""` (system) | Python version passed to `uv init` for new experiments (e.g. `"3.12"`). Override per-experiment with `--python`. |
+| `defaults.auto_commit` | bool | `true` | Auto-commit the workspace on `novo new` / `novo delete`. |
+| `naming.date_prefix` | bool | `true` | Prefix experiment directories with today's date (`2026-05-06-foo`). Skip per-experiment with `--no-date`. |
+
+### Inspecting and changing settings
+
+```bash
+novo config show                          # table of all keys
+novo config get defaults.python           # read one key
+novo config set defaults.python 3.12      # write one key
+novo config set naming.date_prefix false  # accepts true/false, yes/no, 1/0, on/off
+```
+
+You can also edit `~/.config/novo/config.toml` directly:
+
+```toml
+[workspace]
+path = "/Users/me/code/experiments"
+
+[defaults]
+seed = "data-science"
+python = "3.12"
+auto_commit = true
+
+[naming]
+date_prefix = true
+```
+
+### Pinning a Python version
+
+A seed itself can't declare a Python version today — it's resolved per-experiment in this order:
+
+1. `--python` flag on `novo new`
+2. `defaults.python` in `config.toml`
+3. Whatever `uv` picks as the system default
+
+So to make every new experiment use 3.12 by default:
+
+```bash
+novo config set defaults.python 3.12
+novo new quick-test          # uses 3.12
+novo new legacy --python 3.10  # one-off override
+```
+
+---
+
 ## The TUI
 
 Run `novo` with no arguments to launch the interactive terminal UI — a Textual app for browsing, searching, and managing experiments without memorizing flags.
