@@ -55,11 +55,12 @@ def _show_experiment_info(name: str) -> None:
 
 
 def _show_workspace_info() -> None:
-    from novo.core.config import get_workspace_path, load_config
+    from novo.core.config import load_config
     from novo.core.experiment import list_all
+    from novo.core.workspace import current_workspace
 
     config = load_config()
-    workspace = get_workspace_path(config)
+    workspace = current_workspace()
     experiments = list_all()
 
     table = Table(show_header=False, box=None, padding=(0, 2))

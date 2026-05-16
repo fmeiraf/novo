@@ -1,5 +1,8 @@
 """Main Typer app and root callback."""
 
+import os
+from typing import Optional
+
 import typer
 
 from novo import __version__
@@ -22,6 +25,12 @@ def _version_callback(value: bool) -> None:
 @app.callback()
 def main(
     ctx: typer.Context,
+    workspace: Optional[str] = typer.Option(
+        None,
+        "--workspace",
+        "-W",
+        help="Workspace to operate on. Overrides cwd discovery and NOVO_WORKSPACE.",
+    ),
     shell_init: bool = typer.Option(False, "--shell-init", help="Print shell function for `novo open`"),
     version: bool = typer.Option(
         False,
@@ -32,6 +41,11 @@ def main(
     ),
 ) -> None:
     """Novo — manage experimental Python projects."""
+    from novo.core.workspace import set_workspace_override
+
+    explicit = workspace or os.environ.get("NOVO_WORKSPACE") or None
+    set_workspace_override(explicit)
+
     if shell_init:
         typer.echo(get_shell_init())
         raise typer.Exit()

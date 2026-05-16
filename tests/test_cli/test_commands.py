@@ -66,6 +66,9 @@ def test_init_with_path(tmp_workspace, tmp_path):
     result = runner.invoke(app, ["init", str(target)])
     assert result.exit_code == 0
     assert target.exists()
+    assert (target / ".novo").is_dir()
+    assert (target / ".novo" / "seeds").is_dir()
+    assert (target / ".novo" / "config.toml").is_file()
     assert "Workspace initialized" in result.output
 
 
@@ -74,9 +77,66 @@ def test_init_default_cwd(tmp_workspace, tmp_path, monkeypatch):
     result = runner.invoke(app, ["init"])
     assert result.exit_code == 0
     assert "Workspace initialized" in result.output
-    # Verify config was saved with cwd path
+    # New behavior: init creates the `.novo/` marker in cwd, does NOT mutate
+    # the global config.workspace.path.
+    assert (tmp_path / ".novo").is_dir()
     get_result = runner.invoke(app, ["config", "get", "workspace.path"])
-    assert str(tmp_path) in get_result.output
+    assert str(tmp_path) not in get_result.output
+
+
+@patch("novo.core.experiment.uv.uv_init")
+def test_workspace_flag_routes_to_explicit_workspace(mock_uv, tmp_workspace, tmp_path):
+    other = tmp_path / "other-ws"
+    other.mkdir()
+    result = runner.invoke(app, ["--workspace", str(other), "new", "ws-flag-test", "--no-date"])
+    assert result.exit_code == 0
+    assert (other / ".novo").is_dir()
+    assert (other / "ws-flag-test" / ".novo.toml").exists()
+    # Default workspace should not have received the experiment.
+    assert not (tmp_workspace / "ws-flag-test").exists()
+
+
+@patch("novo.core.experiment.uv.uv_init")
+def test_novo_workspace_env_routes_to_explicit_workspace(mock_uv, tmp_workspace, tmp_path):
+    other = tmp_path / "env-ws"
+    other.mkdir()
+    result = runner.invoke(
+        app,
+        ["new", "env-test", "--no-date"],
+        env={"NOVO_WORKSPACE": str(other)},
+    )
+    assert result.exit_code == 0
+    assert (other / "env-test" / ".novo.toml").exists()
+    assert not (tmp_workspace / "env-test").exists()
+
+
+@patch("novo.core.experiment.uv.uv_init")
+def test_workspace_flag_beats_env(mock_uv, tmp_workspace, tmp_path):
+    flag_ws = tmp_path / "flag-ws"
+    flag_ws.mkdir()
+    env_ws = tmp_path / "env-ws"
+    env_ws.mkdir()
+    result = runner.invoke(
+        app,
+        ["--workspace", str(flag_ws), "new", "precedence-test", "--no-date"],
+        env={"NOVO_WORKSPACE": str(env_ws)},
+    )
+    assert result.exit_code == 0
+    assert (flag_ws / "precedence-test" / ".novo.toml").exists()
+    assert not (env_ws / "precedence-test").exists()
+
+
+@patch("novo.core.experiment.uv.uv_init")
+def test_cwd_walk_up_discovers_workspace(mock_uv, tmp_workspace, tmp_path, monkeypatch):
+    ws = tmp_path / "discovered-ws"
+    ws.mkdir()
+    (ws / ".novo").mkdir()
+    nested = ws / "deep" / "subdir"
+    nested.mkdir(parents=True)
+    monkeypatch.chdir(nested)
+    result = runner.invoke(app, ["new", "cwd-test", "--no-date"])
+    assert result.exit_code == 0
+    assert (ws / "cwd-test" / ".novo.toml").exists()
 
 
 def test_config_show(tmp_workspace):
