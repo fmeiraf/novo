@@ -226,7 +226,134 @@ def test_seed_init_toml_content(tmp_workspace):
 
 
 def test_seed_init_visible_in_list(tmp_workspace):
-    runner.invoke(app, ["seed", "init", "listed-seed", "--desc", "Should appear"])
+    runner.invoke(app, ["seed", "init", "listed-seed", "--desc", "Should appear", "--scope", "user"])
     result = runner.invoke(app, ["seed", "list"])
     assert result.exit_code == 0
     assert "listed-seed" in result.output
+
+
+# --- scoped seed list / init / --seed parsing ---
+
+
+def test_seed_list_shows_grouped_sections(tmp_workspace):
+    runner.invoke(app, ["seed", "init", "u1", "--scope", "user"])
+    result = runner.invoke(app, ["seed", "list"])
+    assert result.exit_code == 0
+    # USER section appears (color codes stripped by Rich for non-TTY output).
+    assert "USER" in result.output
+    assert "BUILTIN" in result.output
+    assert "u1" in result.output
+
+
+def test_seed_list_scope_filter(tmp_workspace):
+    runner.invoke(app, ["seed", "init", "userseed", "--scope", "user"])
+    result = runner.invoke(app, ["seed", "list", "--scope", "user"])
+    assert result.exit_code == 0
+    assert "USER" in result.output
+    assert "BUILTIN" not in result.output
+    assert "userseed" in result.output
+
+
+def test_seed_list_invalid_scope(tmp_workspace):
+    result = runner.invoke(app, ["seed", "list", "--scope", "bogus"])
+    assert result.exit_code == 1
+    assert "Unknown scope" in result.output
+
+
+def test_seed_list_json_includes_scope_and_identifier(tmp_workspace):
+    runner.invoke(app, ["seed", "init", "jsonseed", "--scope", "user"])
+    result = runner.invoke(app, ["seed", "list", "--json"])
+    assert result.exit_code == 0
+    import json
+
+    data = json.loads(result.output)
+    names = {item["name"]: item for item in data}
+    assert "jsonseed" in names
+    assert names["jsonseed"]["scope"] == "user"
+    assert names["jsonseed"]["identifier"] == "user:jsonseed"
+
+
+def test_seed_init_local_scope_writes_into_workspace(tmp_workspace, tmp_path, monkeypatch):
+    ws = tmp_path / "explicit-ws"
+    ws.mkdir()
+    result = runner.invoke(
+        app,
+        ["--workspace", str(ws), "seed", "init", "ws-only", "--scope", "local"],
+    )
+    assert result.exit_code == 0
+    assert (ws / ".novo" / "seeds" / "ws-only" / "seed.toml").is_file()
+
+
+def test_seed_init_default_scope_is_local_when_in_workspace(tmp_workspace, tmp_path, monkeypatch):
+    ws = tmp_path / "auto-local-ws"
+    ws.mkdir()
+    (ws / ".novo").mkdir()
+    monkeypatch.chdir(ws)
+    result = runner.invoke(app, ["seed", "init", "auto-local"])
+    assert result.exit_code == 0
+    assert (ws / ".novo" / "seeds" / "auto-local" / "seed.toml").is_file()
+
+
+@patch("novo.core.experiment.uv.uv_init")
+def test_new_with_scoped_seed_flag(mock_uv, tmp_workspace, tmp_path, monkeypatch):
+    ws = tmp_path / "scoped-ws"
+    ws.mkdir()
+    # Pre-create a local seed.
+    (ws / ".novo" / "seeds" / "local-one").mkdir(parents=True)
+    (ws / ".novo" / "seeds" / "local-one" / "template").mkdir()
+    (ws / ".novo" / "seeds" / "local-one" / "seed.toml").write_text(
+        '[seed]\nname = "local-one"\ndescription = "ws-only"\n'
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "--workspace",
+            str(ws),
+            "new",
+            "scoped-exp",
+            "--no-date",
+            "--seed",
+            "local:local-one",
+        ],
+    )
+    assert result.exit_code == 0
+    # Read .novo.toml back and check it stored the scoped identifier.
+    import tomllib
+
+    data = tomllib.loads((ws / "scoped-exp" / ".novo.toml").read_text())
+    assert data["experiment"]["seed"] == "local:local-one"
+
+
+@patch("novo.core.experiment.uv.uv_init")
+def test_new_seed_ambiguity_errors_with_helpful_message(mock_uv, tmp_workspace, tmp_path):
+    ws = tmp_path / "ambig-ws"
+    ws.mkdir()
+    # local and user both have a seed called "shared". (default builtin is
+    # filtered out by the unique name.)
+    (ws / ".novo" / "seeds" / "shared").mkdir(parents=True)
+    (ws / ".novo" / "seeds" / "shared" / "template").mkdir()
+    (ws / ".novo" / "seeds" / "shared" / "seed.toml").write_text(
+        '[seed]\nname = "shared"\n'
+    )
+    user_root = tmp_workspace.parent / "data" / "seeds"
+    (user_root / "shared").mkdir(parents=True)
+    (user_root / "shared" / "template").mkdir()
+    (user_root / "shared" / "seed.toml").write_text('[seed]\nname = "shared"\n')
+
+    result = runner.invoke(
+        app,
+        [
+            "--workspace",
+            str(ws),
+            "new",
+            "ambig-exp",
+            "--no-date",
+            "--seed",
+            "shared",
+        ],
+    )
+    assert result.exit_code == 1
+    assert "ambiguous" in result.output
+    assert "local:shared" in result.output
+    assert "user:shared" in result.output

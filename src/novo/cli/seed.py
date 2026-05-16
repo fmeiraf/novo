@@ -1,5 +1,6 @@
 """novo seed subcommands."""
 
+import json as _json
 from typing import Optional
 
 import typer
@@ -12,48 +13,117 @@ seed_app = typer.Typer(help="Manage seed templates.")
 app.add_typer(seed_app, name="seed")
 
 
+_SCOPE_BADGE = {
+    "local": "[bold cyan]\\[local][/]",
+    "user": "[bold blue]\\[user][/]",
+    "remote": "[bold yellow]\\[remote][/]",
+    "builtin": "[dim]\\[builtin][/]",
+}
+
+
+def _scope_header(scope: str, remote: str | None) -> str:
+    if scope == "local":
+        return "[bold cyan]WORKSPACE[/]  [dim](./.novo/seeds/)[/]"
+    if scope == "user":
+        return "[bold blue]USER[/]  [dim](~/.local/share/novo/seeds/)[/]"
+    if scope == "remote":
+        return f"[bold yellow]REMOTE: {remote}[/]  [dim](~/.local/share/novo/remotes/{remote}/)[/]"
+    if scope == "builtin":
+        return "[dim bold]BUILTIN[/]"
+    return scope
+
+
 @seed_app.command("list")
-def seed_list() -> None:
-    """List available seeds."""
+def seed_list(
+    scope: Optional[str] = typer.Option(
+        None,
+        "--scope",
+        help="Filter by scope: local, user, remote, builtin.",
+    ),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON."),
+) -> None:
+    """List available seeds, grouped by scope."""
     from novo.core.seed import list_seeds
+    from novo.models.scoped_seed import VALID_SCOPES
+
+    if scope is not None and scope not in VALID_SCOPES:
+        rprint(f"[red]Unknown scope:[/red] {scope}")
+        rprint(f"[dim]Expected one of: {', '.join(VALID_SCOPES)}[/dim]")
+        raise typer.Exit(1)
 
     seeds = list_seeds()
+    if scope is not None:
+        seeds = [s for s in seeds if s.scope == scope]
+
+    if output_json:
+        data = [
+            {
+                "name": s.seed.name,
+                "description": s.seed.description,
+                "scope": s.scope,
+                "remote": s.remote,
+                "identifier": s.identifier,
+                "path": s.seed.path,
+                "packages": s.seed.dependencies.packages,
+            }
+            for s in seeds
+        ]
+        typer.echo(_json.dumps(data, indent=2))
+        return
 
     if not seeds:
         rprint("[dim]No seeds found.[/dim]")
         return
 
-    table = Table(show_header=True, header_style="bold")
-    table.add_column("Name", style="cyan")
-    table.add_column("Description")
-    table.add_column("Type", style="dim")
-    table.add_column("Packages", style="green")
+    # Group while preserving the resolution order (local, user, remote, builtin).
+    groups: list[tuple[tuple[str, str | None], list]] = []
+    for s in seeds:
+        key = (s.scope, s.remote)
+        if not groups or groups[-1][0] != key:
+            groups.append((key, []))
+        groups[-1][1].append(s)
 
-    for seed in seeds:
-        seed_type = "built-in" if seed.builtin else "user"
-        packages = ", ".join(seed.dependencies.packages) if seed.dependencies.packages else ""
-        table.add_row(seed.name, seed.description, seed_type, packages)
-
-    rprint(table)
+    first = True
+    for (scope_name, remote_name), items in groups:
+        if not first:
+            rprint("")
+        first = False
+        rprint(_scope_header(scope_name, remote_name))
+        for s in items:
+            desc = s.seed.description or ""
+            rprint(f"  [cyan]{s.seed.name:<20}[/]  {desc}")
 
 
 @seed_app.command("init")
 def seed_init(
     name: str = typer.Argument(help="Name for the new seed"),
     description: str = typer.Option("", "--desc", "-d", help="Seed description"),
-    path: Optional[str] = typer.Option(None, "--path", "-p", help="Custom directory for the seed"),
+    scope: Optional[str] = typer.Option(
+        None,
+        "--scope",
+        help="Where to create the seed: local (workspace) or user (~/.local/share/novo/seeds/). "
+        "Default: local if inside a workspace, else user.",
+    ),
+    path: Optional[str] = typer.Option(None, "--path", "-p", help="Custom directory for the seed (overrides --scope)"),
 ) -> None:
     """Scaffold a new empty seed (seed.toml + template/)."""
     from pathlib import Path
 
     from novo.core.seed import init_seed
+    from novo.core.workspace import discover
 
-    target = Path(path) if path else None
+    explicit_path = Path(path) if path else None
+
+    if scope is None:
+        scope = "local" if discover() is not None else "user"
+    if scope not in ("local", "user"):
+        rprint(f"[red]Cannot init a {scope!r} seed; use local or user.[/red]")
+        raise typer.Exit(1)
 
     try:
-        seed = init_seed(name, description, target)
-        rprint(f"[green]Created seed:[/green] {seed.name}")
-        rprint(f"  [dim]Path:[/dim] {seed.path}")
+        scoped = init_seed(name, description, explicit_path, scope=scope)
+        rprint(f"[green]Created seed:[/green] {scoped.identifier}")
+        rprint(f"  [dim]Path:[/dim] {scoped.seed.path}")
         rprint(f"  [dim]Next steps:[/dim] add template files to [cyan]template/[/cyan], edit [cyan]seed.toml[/cyan]")
     except FileExistsError as e:
         rprint(f"[red]Error:[/red] {e}")
@@ -65,7 +135,10 @@ def seed_add(
     url: str = typer.Argument(help="Git URL of the seed repository"),
     name: Optional[str] = typer.Option(None, "--name", "-n", help="Custom name for the seed"),
 ) -> None:
-    """Install a seed from a git repository."""
+    """Install a single-seed repo from a git URL (user scope).
+
+    Deprecated: prefer `novo seed link` (phase 4) for multi-seed repos.
+    """
     from novo.core.seed import add_from_git
 
     try:

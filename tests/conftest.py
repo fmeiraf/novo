@@ -6,6 +6,16 @@ from pathlib import Path
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _reset_workspace_override():
+    """Workspace override is process-scoped; reset it between every test."""
+    from novo.core.workspace import set_workspace_override
+
+    set_workspace_override(None)
+    yield
+    set_workspace_override(None)
+
+
 @pytest.fixture
 def tmp_workspace(tmp_path, monkeypatch):
     """Create a temporary workspace for testing."""

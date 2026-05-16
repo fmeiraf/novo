@@ -32,6 +32,16 @@ def seeds_dir() -> Path:
     return data_dir() / "seeds"
 
 
+def remotes_dir() -> Path:
+    """Return the directory holding cloned remote seed registries."""
+    return data_dir() / "remotes"
+
+
+def workspace_seeds_dir(workspace: Path) -> Path:
+    """Return the per-workspace local seeds directory (`<workspace>/.novo/seeds/`)."""
+    return workspace / ".novo" / "seeds"
+
+
 def builtin_seeds_dir() -> Path:
     """Return the built-in seeds directory (ships with package)."""
     return Path(__file__).parent.parent.parent / "seeds"

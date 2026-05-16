@@ -57,9 +57,10 @@ class NewExperimentScreen(ModalScreen[bool]):
             yield Input(placeholder="web, async, ml", id="tags-input")
 
             yield Label("Seed")
+            options = self._get_seed_options()
             yield Select(
-                self._get_seed_options(),
-                value="default",
+                options,
+                value=self._get_default_seed_value(options),
                 id="seed-select",
             )
 
@@ -80,8 +81,26 @@ class NewExperimentScreen(ModalScreen[bool]):
 
         seeds = list_seeds()
         if not seeds:
-            return [("default", "default")]
-        return [(s.name, s.name) for s in seeds]
+            return [("builtin:default", "builtin:default")]
+        # Display the scoped identifier so users can distinguish shadowed seeds.
+        return [(f"{s.identifier}", s.identifier) for s in seeds]
+
+    def _get_default_seed_value(self, options: list[tuple[str, str]]) -> str:
+        """Pick which option the Select should start on.
+
+        Uses `config.defaults.seed` (resolved through scope rules if unprefixed),
+        else falls back to the first option.
+        """
+        from novo.core.config import load_config
+        from novo.core.seed import resolve_seed
+
+        if not options:
+            return ""
+        try:
+            scoped = resolve_seed(load_config().defaults.seed)
+            return scoped.identifier
+        except ValueError:
+            return options[0][1]
 
     def _get_python_options(self) -> list[tuple[str, str]]:
         versions = list_python_versions()

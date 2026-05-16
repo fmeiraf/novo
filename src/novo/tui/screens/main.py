@@ -17,7 +17,7 @@ from textual.widgets import (
 )
 from textual.widgets.option_list import Option
 
-from novo.models.seed import Seed
+from novo.models.scoped_seed import ScopedSeed
 from novo.tui.widgets.experiment_card import ExperimentCard
 from novo.tui.widgets.experiment_list import ExperimentList
 from novo.tui.widgets.file_preview import FilePreview
@@ -26,16 +26,30 @@ from novo.tui.widgets.search_bar import SearchBar
 from novo.tui.widgets.status_bar import StatusBar
 
 
-def _format_seed_detail(seed: Seed) -> str:
+_SCOPE_LABEL = {
+    "local": "workspace",
+    "user": "user-installed",
+    "remote": "remote",
+    "builtin": "built-in",
+}
+
+
+def _format_seed_detail(scoped: ScopedSeed) -> str:
     """Format the seed metadata block as Rich-markup text."""
+    seed = scoped.seed
     packages = ", ".join(seed.dependencies.packages) or "none"
     excludes = ", ".join(seed.files.exclude) or "none"
+
+    type_label = _SCOPE_LABEL.get(scoped.scope, scoped.scope)
+    if scoped.scope == "remote" and scoped.remote:
+        type_label = f"remote ({scoped.remote})"
 
     lines = [
         f"[b]{seed.name}[/]",
         "",
+        f"[b]Identifier:[/] [cyan]{scoped.identifier}[/]",
         f"[b]Description:[/] {seed.description or 'none'}",
-        f"[b]Type:[/] {'built-in' if seed.builtin else 'user-installed'}",
+        f"[b]Type:[/] {type_label}",
         f"[b]Packages:[/] {packages}",
         f"[b]Excludes:[/] {excludes}",
     ]
@@ -139,9 +153,10 @@ class MainScreen(Screen):
         self._seeds = list_seeds()
         seed_list = self.query_one("#seed-list", OptionList)
         seed_list.clear_options()
-        for seed in self._seeds:
-            label = f"{'[built-in] ' if seed.builtin else ''}{seed.name}"
-            seed_list.add_option(Option(label, id=seed.name))
+        for scoped in self._seeds:
+            badge = f"[{scoped.scope}]"
+            label = f"{badge} {scoped.seed.name}"
+            seed_list.add_option(Option(label, id=scoped.identifier))
 
     def on_option_list_option_highlighted(self, event: OptionList.OptionHighlighted) -> None:
         if event.option_list.id != "seed-list":
@@ -149,12 +164,12 @@ class MainScreen(Screen):
         if event.option_index >= len(self._seeds):
             return
 
-        seed = self._seeds[event.option_index]
+        scoped = self._seeds[event.option_index]
         detail = self.query_one("#seed-detail", Static)
 
-        detail.update(_format_seed_detail(seed))
+        detail.update(_format_seed_detail(scoped))
 
-        template_dir = Path(seed.path) / "template"
+        template_dir = Path(scoped.seed.path) / "template"
         self._mount_seed_tree(template_dir if template_dir.is_dir() else None)
 
         preview = self.query_one("#seed-preview", FilePreview)

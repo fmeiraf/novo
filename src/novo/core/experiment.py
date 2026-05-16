@@ -73,8 +73,7 @@ def create(
     config = load_config()
     workspace = ensure_initialized()
 
-    # Resolve settings
-    seed = seed_name or config.defaults.seed
+    seed_request = seed_name or config.defaults.seed
     python_version = python or config.defaults.python or None
     use_date = (not no_date) and config.naming.date_prefix
     dir_name = _make_dir_name(name, use_date)
@@ -85,30 +84,26 @@ def create(
 
     exp_dir.mkdir(parents=True)
 
-    # Run uv init
     uv.uv_init(exp_dir, python=python_version)
 
-    # Apply seed template
     from novo.core.seed import apply_seed
 
-    apply_seed(seed, exp_dir)
+    scoped = apply_seed(seed_request, exp_dir, workspace=workspace)
+    seed_identifier = scoped.identifier if scoped is not None else seed_request
 
-    # Build experiment model
     experiment = Experiment(
         name=name,
-        seed=seed,
+        seed=seed_identifier,
         tags=tags or [],
         description=description,
         python=python_version or "",
         dir_name=dir_name,
     )
 
-    # Write .novo.toml
     _write_novo_toml(exp_dir, experiment)
 
-    # Git commit
     if config.defaults.auto_commit:
-        git.add_and_commit(workspace, f"novo: create {name} (seed: {seed})")
+        git.add_and_commit(workspace, f"novo: create {name} (seed: {seed_identifier})")
 
     return experiment
 
