@@ -5,20 +5,26 @@ A terminal tool for managing experimental Python projects.
 ## Commands
 
 ```bash
-uv sync                        # Install dependencies
-uv run novo                    # Run novo (launches TUI)
-uv run novo --help             # Show CLI help
-uv run novo new <name>         # Create experiment
-uv run novo list               # List experiments
-uv run novo info [name]        # Show experiment or workspace info
-uv run novo search <query>     # Search experiments
-uv run novo delete <name>      # Delete experiment
-uv run novo open <name>        # Open experiment directory
-uv run novo seed list          # List available seeds
-uv run novo seed init <name>   # Scaffold a new empty seed
-uv run pytest                  # Run all tests
-uv run pytest tests/test_core  # Run core tests only
-uv run pytest -x               # Stop on first failure
+uv sync                                # Install dependencies
+uv run novo                            # Run novo (launches TUI)
+uv run novo --help                     # Show CLI help
+uv run novo --workspace <path> <cmd>   # Operate on a specific workspace
+uv run novo --detached new <name>      # Create a self-contained experiment in cwd
+uv run novo init [path]                # Write `.novo/` marker at path (default cwd)
+uv run novo new <name>                 # Create experiment
+uv run novo list                       # List experiments
+uv run novo info [name]                # Show experiment or workspace info
+uv run novo search <query>             # Search experiments
+uv run novo delete <name>              # Delete experiment
+uv run novo open <name>                # Open experiment directory
+uv run novo seed list                  # List available seeds (grouped by scope)
+uv run novo seed init <name>           # Scaffold a new empty seed
+uv run novo seed link <url>            # Link a remote seed registry
+uv run novo seed sync [<name>]         # Pull one or all linked remotes
+uv run novo seed unlink <name>         # Remove a linked remote
+uv run pytest                          # Run all tests
+uv run pytest tests/test_core          # Run core tests only
+uv run pytest -x                       # Stop on first failure
 ```
 
 ## Documentation
@@ -34,6 +40,7 @@ uv run pytest -x               # Stop on first failure
 | [docs/core.md](docs/core.md) | Business logic: experiment, seed, config, git |
 | [docs/models.md](docs/models.md) | Pydantic schemas: NovoConfig, Experiment, Seed |
 | [docs/utils.md](docs/utils.md) | XDG paths, uv wrapper, shell integration |
+| [docs/seeds.md](docs/seeds.md) | Seed scopes, identifier syntax, remote sync workflow |
 
 ## Core Principles
 

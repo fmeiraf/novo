@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Workspace markers and multi-workspace support.** Any directory with a `.novo/` marker is a valid workspace (like `.git/`). `--workspace <path>` / `NOVO_WORKSPACE` flag/env pin a specific workspace; otherwise novo walks up from cwd looking for a marker, then falls back to `config.workspace.path` or the XDG default. `ensure_initialized()` silently migrates pre-marker workspaces on first touch.
+- **Scope-aware seed resolution.** Seeds live in four scopes: `local` (`<workspace>/.novo/seeds/`), `user`, `remote`, and `builtin`. `--seed` accepts both bare names and explicit scoped forms (`local:foo`, `user:foo`, `remote:team/foo`, `builtin:foo`); bare names error on ambiguity. `.novo.toml` records the scoped identifier so seed origin stays unambiguous.
+- **Detached mode.** `novo --detached` skips workspace lookup. `novo --detached new <name>` creates a self-contained experiment at `(--at <path> or cwd)/<name>` with its own git repo (gated on the new `defaults.detached_git` config knob). The other registry-bound commands refuse cleanly. TUI launches a minimal landing screen with direct actions.
+- **Remote seed registries.** `novo seed link <url>` clones a git repo of seeds into `~/.local/share/novo/remotes/<name>/`; every subdirectory with a `seed.toml` surfaces as `remote:<name>/<seed>`. `novo seed sync [<name>]` pulls one or all; `novo seed unlink <name>` removes the config entry + clone. Idempotent.
+- **TUI overhaul.** New `SeedPicker` widget (scope-grouped OptionList with type-ahead filter and `(default)` indicator); `NewExperimentScreen` uses it. New screens: `DetachedScreen` (minimal landing), `RemoteLinkScreen`, `NewSeedScreen`. Seeds tab gains scope grouping (reuses the picker's row builder) and `N`/`l`/`u`/`r` keybindings. Status bar gains a mode chip and a sync-note slot.
+- **New CLI commands and flags:** `novo seed link/sync/unlink`, `novo seed init --scope`, `novo seed list --scope/--json`, `novo new --detached/--at`, `--workspace`/`-W` global flag, `defaults.detached_git` config key.
+- **New `docs/seeds.md`** covering scopes, identifier syntax, and the remote sync workflow.
+
+### Changed
+- `novo init` now writes a `.novo/` marker at the target path instead of mutating `config.workspace.path`. To pin a default workspace, run `novo config set workspace.path <path>` explicitly.
+- `novo seed list` output is grouped by scope (WORKSPACE / USER / REMOTE: \<name> / BUILTIN) with origin badges; `--json` includes `scope`, `remote`, `identifier`, and `path` per seed.
+- `RemoteSeed.ref` defaults to `""` (follow the cloned branch) rather than `"main"`, so registries on `master` or other branches work without explicit pinning.
+
+### Removed
+- `novo seed add <url>` — replaced by `novo seed link` for multi-seed repos. To install a single-seed repo, either reshape it into a multi-seed layout or `git clone` into `~/.local/share/novo/seeds/<name>/` manually.
+
 ## [0.1.4] - 2026-05-06
 
 ### Changed

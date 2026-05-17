@@ -69,16 +69,34 @@ uv run novo delete smoke-test --force
 ### Seed commands
 
 ```bash
-uv run novo seed list
-uv run novo seed add https://github.com/user/seed-repo.git
+uv run novo seed list                                         # grouped by scope
+uv run novo seed init my-seed --scope user                    # scaffold an empty seed
+uv run novo seed link git@github.com:team/seeds.git --name team
+uv run novo seed sync team
+uv run novo seed unlink team
 uv run novo seed create my-seed --from smoke-test
 uv run novo seed remove my-seed
+```
+
+### Workspace modes
+
+```bash
+# Workspace mode (default): cwd discovery or XDG fallback.
+uv run novo new my-exp
+
+# Pin a specific workspace.
+uv run novo --workspace /tmp/scratch new my-exp
+
+# Detached: self-contained experiment in cwd (or --at <dir>), own git repo.
+uv run novo --detached new my-exp
+uv run novo --detached new my-exp --at /tmp
 ```
 
 ### TUI
 
 ```bash
-uv run novo   # Launches interactive TUI when no subcommand is given
+uv run novo               # workspace mode
+uv run novo --detached    # minimal-mode landing screen
 ```
 
-Key bindings: `n` new, `d` delete, `s` seeds, `/` search, `q` quit.
+Key bindings: `n` new, `d` delete, `s` seeds, `e` experiments, `/` search, `q` quit. Seeds tab adds: `N` new seed, `l` link remote, `u` unlink, `r` sync remotes, `t` focus tree.

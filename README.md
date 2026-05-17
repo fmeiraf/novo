@@ -44,14 +44,16 @@ That's it — the novo source tree is no longer needed. Use `novo` from any dire
 
 ### 1. Set up a workspace
 
-The workspace is a single git-tracked directory where all your experiments live.
+A workspace is any directory containing a `.novo/` marker — the same pattern as git's `.git/`. Multiple workspaces are supported; novo picks one per invocation via cwd discovery (walks up looking for `.novo/`), then falls back to a configured `workspace.path` or the XDG default (`~/.local/share/novo/workspace/`).
 
 ```bash
 cd ~/code/experiments    # or wherever you want them
 novo init
 ```
 
-This registers the current directory as your workspace and initializes it as a git repo. Skip it entirely and novo will use an XDG-compliant default (`~/.local/share/novo/workspace/`).
+`novo init` writes the `.novo/` marker and initializes the directory as a git repo. Skip it entirely and novo will create + use the XDG default the first time you run `novo new`.
+
+You can also point at a workspace explicitly with `--workspace <path>` or `NOVO_WORKSPACE=<path>`, or operate outside any workspace with `--detached` (see [detached mode](#detached-mode) below).
 
 ### 2. Create your first experiment
 
@@ -98,11 +100,13 @@ novo works out of the box, but a handful of settings let you tailor the defaults
 
 | Key | Type | Default | What it does |
 |-----|------|---------|--------------|
-| `workspace.path` | str | `""` (XDG default) | Where experiments are created. Empty falls back to `~/.local/share/novo/workspace/`. Set by `novo init`. |
-| `defaults.seed` | str | `"default"` | Seed used when `novo new` is called without `--seed`. |
+| `workspace.path` | str | `""` (XDG default) | Optional "home" workspace used when cwd discovery finds nothing. Empty falls back to `~/.local/share/novo/workspace/`. Set explicitly with `novo config set workspace.path <path>`. |
+| `defaults.seed` | str | `"default"` | Seed used when `novo new` is called without `--seed`. Accepts scoped forms (e.g. `"user:data-science"`, `"remote:team/etl"`). |
 | `defaults.python` | str | `""` (system) | Python version passed to `uv init` for new experiments (e.g. `"3.12"`). Override per-experiment with `--python`. |
 | `defaults.auto_commit` | bool | `true` | Auto-commit the workspace on `novo new` / `novo delete`. |
+| `defaults.detached_git` | bool | `true` | In detached mode, init a git repo inside each created experiment and commit. |
 | `naming.date_prefix` | bool | `true` | Prefix experiment directories with today's date (`2026-05-06-foo`). Skip per-experiment with `--no-date`. |
+| `[[seeds.remotes]]` | table-list | `[]` | Linked remote seed registries. Managed via `novo seed link / unlink`. |
 
 ### Inspecting and changing settings
 
@@ -120,12 +124,18 @@ You can also edit `~/.config/novo/config.toml` directly:
 path = "/Users/me/code/experiments"
 
 [defaults]
-seed = "data-science"
+seed = "user:data-science"
 python = "3.12"
 auto_commit = true
+detached_git = true
 
 [naming]
 date_prefix = true
+
+[[seeds.remotes]]
+name = "team"
+url = "git@github.com:team/novo-seeds.git"
+ref = ""   # empty = follow the cloned branch
 ```
 
 ### Pinning a Python version
@@ -163,29 +173,46 @@ Run `novo` with no arguments to launch the interactive terminal UI — a Textual
 |-----|--------|
 | `n` | Create new experiment |
 | `d` | Delete selected |
-| `s` | Browse seeds |
+| `s` | Switch to Seeds tab |
+| `e` | Switch to Experiments tab |
 | `/` | Search |
 | `Enter` | Open experiment in a new terminal window |
 | `j` / `k` | Navigate (vim-style) |
 | `?` | Help |
 | `q` | Quit |
 
+Extra bindings on the **Seeds tab**: `N` scaffold seed, `l` link remote registry, `u` unlink, `r` sync remotes, `t` focus the template tree.
+
 See [`docs/tui.md`](docs/tui.md) for the full screen and widget breakdown.
+
+### Detached mode
+
+`novo --detached` skips workspace lookup entirely:
+
+- **CLI:** `novo --detached new <name>` creates a self-contained experiment in `(--at <path> or cwd)/<name>`. With `defaults.detached_git = true` (default), each experiment gets its own git repo and initial commit. `novo list/info/search/delete/open` refuse cleanly under `--detached`.
+- **TUI:** `novo --detached` launches a minimal landing screen with direct actions: new experiment here, link remote, initialize workspace here, browse seeds (CLI hint).
+
+Drop `--detached` (or run `novo init` once) to get back to workspace mode.
 
 ---
 
 ## Everyday commands
 
 ```bash
-novo                       # launch the interactive TUI
-novo new <name>            # create an experiment
-novo list                  # list experiments
-novo info [name]           # workspace summary, or details for one experiment
-novo search <query>        # fuzzy search across name, description, tags
-novo open <name>           # cd into an experiment (needs shell integration)
+novo                                       # launch the interactive TUI
+novo new <name>                            # create an experiment
+novo list                                  # list experiments
+novo info [name]                           # workspace summary, or details for one experiment
+novo search <query>                        # fuzzy search across name, description, tags
+novo open <name>                           # cd into an experiment (needs shell integration)
 novo delete <name>
-novo seed list | init <name>
+novo init [path]                           # write a `.novo/` marker at path (default cwd)
+novo seed list | init <name>               # browse / scaffold seeds
+novo seed link <url>                       # link a remote seed registry (idempotent)
+novo seed sync [<name>] | unlink <name>    # refresh or remove a linked remote
 novo config show | get <key> | set <key> <value>
+novo --workspace <path> <cmd>              # operate on a specific workspace
+novo --detached new <name>                 # create a self-contained experiment in cwd
 ```
 
 For `novo open` to actually `cd`, add this to your `~/.zshrc` / `~/.bashrc`:
@@ -214,7 +241,8 @@ Deeper docs live in [`docs/`](docs/):
 | [architecture.md](docs/architecture.md) | Layers, data flow, project structure |
 | [cli.md](docs/cli.md) | All CLI commands and flags |
 | [tui.md](docs/tui.md) | Textual app, screens, keybindings |
-| [core.md](docs/core.md) | Experiment, seed, config, and git logic |
+| [core.md](docs/core.md) | Experiment, seed, config, workspace, remote, git logic |
+| [seeds.md](docs/seeds.md) | Seed scopes, identifier syntax, remote sync workflow |
 | [models.md](docs/models.md) | Pydantic schemas |
 | [development.md](docs/development.md) | Local dev setup |
 | [testing.md](docs/testing.md) | Test layout and conventions |

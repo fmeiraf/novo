@@ -6,57 +6,89 @@ Interactive terminal interface built with [Textual](https://textual.textualize.i
 
 ```
 tui/
-├── app.py                  # NovoApp (root application)
+├── app.py                  # NovoApp (root) — picks MainScreen vs DetachedScreen
 ├── styles/
 │   └── app.tcss            # Textual CSS (colors, layout)
 ├── screens/
-│   ├── main.py             # MainScreen — two-panel layout
-│   ├── new_experiment.py   # NewExperimentScreen — creation modal
-│   ├── confirm.py          # ConfirmScreen — yes/no dialog
-│   └── seed_manager.py     # SeedManagerScreen — seed browser
+│   ├── main.py             # Workspace mode — tabbed Experiments + Seeds
+│   ├── detached.py         # Detached-mode minimal landing screen
+│   ├── new_experiment.py   # Create-experiment modal (uses SeedPicker)
+│   ├── new_seed.py         # Scaffold-seed modal (name/desc/scope)
+│   ├── remote_link.py      # Link-remote modal (url/name/ref)
+│   └── confirm.py          # Reusable yes/no dialog
 └── widgets/
     ├── experiment_list.py  # ExperimentList — filterable list (vim keys)
     ├── experiment_card.py  # ExperimentCard — detail panel
     ├── search_bar.py       # SearchBar — search input
-    └── status_bar.py       # StatusBar — context-sensitive keybindings
+    ├── status_bar.py       # StatusBar — mode chip + bindings + sync note
+    ├── seed_picker.py      # SeedPicker — scope-grouped picker + pure helpers
+    ├── file_tree.py        # Filtered directory tree
+    └── file_preview.py     # File contents preview
 ```
 
 ## App
 
-`NovoApp` subclasses `textual.App`. Loads CSS from `styles/app.tcss`, binds `q` to quit, and pushes `MainScreen` on startup.
+`NovoApp` subclasses `textual.App`. Loads CSS from `styles/app.tcss`, binds `q` to quit, and on mount inspects `core.workspace.is_detached_forced()` to choose its initial screen:
+
+- `True` → push `DetachedScreen`
+- `False` → push `MainScreen`
 
 ## Screens
 
-### MainScreen
+### MainScreen (workspace mode)
 
-Primary two-panel layout: experiment list on the left, detail card on the right.
+Two-tab layout: **Experiments** (list + detail card, search bar) and **Seeds** (scope-grouped picker + detail/template/preview panels).
 
-**Keybindings:** `n` new, `d` delete, `s` seeds, `/` search, `?` help, `q` quit.
+**Keybindings:**
 
-**Lifecycle:**
-1. `on_mount()` — Loads experiments via `core.experiment.list_all()`
-2. Selection changes → updates `ExperimentCard`
-3. Enter on an experiment → opens its directory path
-4. Search input → filters the list in real-time
+| Key | Action |
+|-----|--------|
+| `n` | New experiment (modal) |
+| `d` | Delete selected experiment (Experiments tab only) |
+| `e` | Switch to Experiments tab |
+| `s` | Switch to Seeds tab |
+| `t` | Focus the seed file tree (Seeds tab only) |
+| `/` | Focus search bar |
+| `?` | Help notification |
+| `q` | Quit |
+| `N` | Scaffold new seed (Seeds tab only) |
+| `l` | Link remote registry (Seeds tab only) |
+| `u` | Unlink the registry of the highlighted remote seed (Seeds tab only) |
+| `r` | Sync all linked remotes (Seeds tab only) |
 
-**Modals** are pushed onto the screen stack and return results via callbacks:
-- `NewExperimentScreen` → refreshes list on success
-- `ConfirmScreen` → deletes experiment if confirmed
-- `SeedManagerScreen` → browse/manage seeds
+The seeds tab uses `build_picker_rows()` (the same helper as the SeedPicker widget) so the WORKSPACE / USER / REMOTE: \<n> / BUILTIN section headers and `[scope]` badges match the picker.
+
+### DetachedScreen
+
+Minimal landing screen for `novo --detached` launches — no workspace registry to browse. Header reads `DETACHED — <cwd>` with four direct actions: New experiment here, Browse seeds (CLI hint), Link remote, Initialize workspace here.
+
+| Key | Action |
+|-----|--------|
+| `n` | New experiment here |
+| `s` | Browse seeds (shows a CLI hint) |
+| `l` | Link remote |
+| `i` | Initialize workspace here (flips to workspace mode + switches to MainScreen) |
+| `q` | Quit |
 
 ### NewExperimentScreen
 
-Modal with fields: name, description, tags (comma-separated), seed (dropdown from `core.seed.list_seeds()`), Python version (dropdown from `utils.uv.list_python_versions()`).
+Modal fields: name, description, tags (comma-separated), seed (SeedPicker), Python version (Select).
 
-Calls `core.experiment.create()` on submit. Returns the created `Experiment` or `False` on cancel.
+The SeedPicker is constructed with `hide_workspace=is_detached_forced()` so detached launches omit the WORKSPACE section.
+
+On submit, calls `core.experiment.create(seed_name=picker.selected_identifier, …)` — `.novo.toml` records the scoped form.
+
+### NewSeedScreen
+
+Modal for `novo seed init` from within the TUI. Fields: name, description, scope (local/user). Default scope mirrors the CLI: local if cwd is inside a workspace, else user.
+
+### RemoteLinkScreen
+
+Modal for `novo seed link`. Fields: URL (required), local name (optional, defaults to repo name), ref (optional). On submit calls `link_remote()` and dismisses with `True`; the main screen then runs a sync and surfaces the result in the status bar.
 
 ### ConfirmScreen
 
 Reusable yes/no dialog. Accepts a message string, returns `True`/`False`. Binds `y`/`n`/`escape`.
-
-### SeedManagerScreen
-
-Two-panel seed browser showing all seeds with details (name, description, type, packages, path). Marks built-in seeds with a prefix.
 
 ## Widgets
 
@@ -65,8 +97,13 @@ Two-panel seed browser showing all seeds with details (name, description, type, 
 | `ExperimentList` | Extends `OptionList`. Vim-style navigation (`j`/`k`). Posts `Selected` and `Activated` messages. Supports `filter(query)` for real-time search across name, description, and tags. |
 | `ExperimentCard` | Displays selected experiment details: name, created date, seed, Python version, tags, description, directory, `.claude`/`.agents` presence. |
 | `SearchBar` | Horizontal input with `> ` prompt. Posts `Changed(query)` on each keystroke. |
-| `StatusBar` | Shows keybinding hints. Switches context (`main`, `search`, `new`, `confirm`) to display relevant bindings. |
+| `StatusBar` | Three slots: mode chip (`WORKSPACE: foo` / `DETACHED`), key bindings (context-aware: `main`, `seeds`, `search`, `new`, `confirm`), and a transient sync note for `seed sync` results. Rendering is exposed via `compose_text()` for testability. |
+| `SeedPicker` | OptionList-based scope-aware picker. Sections rendered as disabled header rows; entries show `name  description  [scope-badge]` plus `(default)` on the resolved default. Type-ahead `Input` filters by name+description, dropping empty sections. `hide_workspace=True` removes the local section (used in detached mode). |
+
+### `build_picker_rows()` (in `seed_picker.py`)
+
+Pure helper that returns `list[PickerRow(label, id, disabled)]` for an OptionList. Used by both `SeedPicker` and `MainScreen._refresh_seeds()` so the two surfaces stay consistent.
 
 ## Styling
 
-All styles are in `styles/app.tcss`. Uses Textual CSS variables (`$primary`, `$accent`, `$surface`, `$text`). Layout is a vertical stack: header → search bar → horizontal split (list | card) → status bar.
+All styles are in `styles/app.tcss`. Uses Textual CSS variables (`$primary`, `$accent`, `$surface`, `$text`). Layout is a vertical stack: header → tabs → status bar.
