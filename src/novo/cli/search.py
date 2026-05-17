@@ -15,7 +15,10 @@ def search(
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ) -> None:
     """Search experiments by name, description, or tags."""
+    from novo.cli import require_workspace
     from novo.core.experiment import search as search_experiments
+
+    require_workspace("search")
 
     results = search_experiments(query)
 

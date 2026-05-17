@@ -95,3 +95,43 @@ def test_delete_experiment(mock_uv_init, tmp_workspace):
 
     result = delete("delete-me")
     assert result is True
+
+
+# --- detached mode ---
+
+
+@patch("novo.core.experiment.uv.uv_init")
+def test_create_detached_uses_cwd(mock_uv_init, tmp_workspace, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    exp = create(name="solo", no_date=True, detached=True)
+    assert exp.dir_name == "solo"
+    assert (tmp_path / "solo" / ".novo.toml").exists()
+    # Detached creates a self-contained git repo with one commit.
+    assert (tmp_path / "solo" / ".git").is_dir()
+    # Default workspace should NOT have received the experiment.
+    assert not (tmp_workspace / "solo").exists()
+
+
+@patch("novo.core.experiment.uv.uv_init")
+def test_create_detached_with_at(mock_uv_init, tmp_workspace, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_workspace)  # cwd unrelated to --at
+    at = tmp_path / "exp-parent"
+    at.mkdir()
+    exp = create(name="byat", no_date=True, detached=True, at=at)
+    assert (at / "byat" / ".novo.toml").exists()
+    assert exp.dir_name == "byat"
+    assert not (tmp_workspace / "byat").exists()
+
+
+@patch("novo.core.experiment.uv.uv_init")
+def test_create_detached_no_git_when_disabled(mock_uv_init, tmp_workspace, tmp_path, monkeypatch):
+    from novo.core.config import load_config, save_config
+
+    config = load_config()
+    config.defaults.detached_git = False
+    save_config(config)
+
+    monkeypatch.chdir(tmp_path)
+    create(name="nogit", no_date=True, detached=True)
+    assert (tmp_path / "nogit" / ".novo.toml").exists()
+    assert not (tmp_path / "nogit" / ".git").exists()

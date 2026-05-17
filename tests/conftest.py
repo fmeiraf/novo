@@ -8,12 +8,14 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def _reset_workspace_override():
-    """Workspace override is process-scoped; reset it between every test."""
-    from novo.core.workspace import set_workspace_override
+    """Workspace override + detached flag are process-scoped; reset between tests."""
+    from novo.core.workspace import set_detached_forced, set_workspace_override
 
     set_workspace_override(None)
+    set_detached_forced(False)
     yield
     set_workspace_override(None)
+    set_detached_forced(False)
 
 
 @pytest.fixture

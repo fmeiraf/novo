@@ -17,7 +17,10 @@ def list_experiments(
     output_json: bool = typer.Option(False, "--json", help="Output as JSON"),
 ) -> None:
     """List all experiments."""
+    from novo.cli import require_workspace
     from novo.core.experiment import list_all
+
+    require_workspace("list")
 
     experiments = list_all(sort_by=sort, tag=tag)
 

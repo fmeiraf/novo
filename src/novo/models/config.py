@@ -15,6 +15,7 @@ class DefaultsConfig(BaseModel):
     seed: str = "default"
     auto_commit: bool = True
     python: str = ""  # Empty = system default
+    detached_git: bool = True  # Detached experiments get their own git repo
 
 
 class NamingConfig(BaseModel):

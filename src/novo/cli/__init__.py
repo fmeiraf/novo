@@ -22,6 +22,23 @@ def _version_callback(value: bool) -> None:
         raise typer.Exit()
 
 
+def require_workspace(cmd: str) -> None:
+    """Refuse to run a workspace-bound command when `--detached` is forced."""
+    from rich import print as rprint
+
+    from novo.core.workspace import is_detached_forced
+
+    if is_detached_forced():
+        rprint(
+            f"[red]Error:[/red] `novo {cmd}` operates on a workspace; "
+            f"--detached has no registry to enumerate."
+        )
+        rprint(
+            "[dim]Drop --detached, pass --workspace <path>, or cd into a workspace.[/dim]"
+        )
+        raise typer.Exit(1)
+
+
 @app.callback()
 def main(
     ctx: typer.Context,
@@ -30,6 +47,11 @@ def main(
         "--workspace",
         "-W",
         help="Workspace to operate on. Overrides cwd discovery and NOVO_WORKSPACE.",
+    ),
+    detached: bool = typer.Option(
+        False,
+        "--detached",
+        help="Force detached mode: ignore any workspace and operate against cwd.",
     ),
     shell_init: bool = typer.Option(False, "--shell-init", help="Print shell function for `novo open`"),
     version: bool = typer.Option(
@@ -41,10 +63,11 @@ def main(
     ),
 ) -> None:
     """Novo — manage experimental Python projects."""
-    from novo.core.workspace import set_workspace_override
+    from novo.core.workspace import set_detached_forced, set_workspace_override
 
     explicit = workspace or os.environ.get("NOVO_WORKSPACE") or None
     set_workspace_override(explicit)
+    set_detached_forced(detached)
 
     if shell_init:
         typer.echo(get_shell_init())

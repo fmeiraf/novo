@@ -11,6 +11,9 @@ def open(
     name: str = typer.Argument(help="Name of the experiment to open"),
 ) -> None:
     """Open an experiment directory (requires shell integration)."""
+    from novo.cli import require_workspace
+
+    require_workspace("open")
     rprint(
         "[yellow]Note:[/yellow] `novo open` requires shell integration.\n"
         'Add this to your shell rc: [cyan]eval "$(novo --shell-init)"[/cyan]'
@@ -29,6 +32,9 @@ def _open_path(
     name: str = typer.Argument(help="Name of the experiment"),
 ) -> None:
     """Print the path to an experiment (used by shell function)."""
+    from novo.cli import require_workspace
+
+    require_workspace("open")
     from novo.core.experiment import get_path
 
     path = get_path(name)

@@ -12,8 +12,11 @@ def delete(
     force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
 ) -> None:
     """Delete an experiment."""
+    from novo.cli import require_workspace
     from novo.core.experiment import delete as delete_experiment
     from novo.core.experiment import get
+
+    require_workspace("delete")
 
     exp = get(name)
     if exp is None:

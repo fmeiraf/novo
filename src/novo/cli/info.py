@@ -15,6 +15,9 @@ def info(
     name: Optional[str] = typer.Argument(None, help="Experiment name (omit for workspace info)"),
 ) -> None:
     """Show experiment or workspace details."""
+    from novo.cli import require_workspace
+
+    require_workspace("info")
     if name:
         _show_experiment_info(name)
     else:

@@ -14,6 +14,7 @@ CONFIG_KEYS: dict[str, type] = {
     "defaults.seed": str,
     "defaults.auto_commit": bool,
     "defaults.python": str,
+    "defaults.detached_git": bool,
     "naming.date_prefix": bool,
 }
 

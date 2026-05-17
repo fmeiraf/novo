@@ -68,19 +68,37 @@ def create(
     description: str = "",
     tags: list[str] | None = None,
     no_date: bool = False,
+    detached: bool = False,
+    at: Path | None = None,
 ) -> Experiment:
-    """Create a new experiment."""
+    """Create a new experiment.
+
+    In workspace mode (default), the experiment is placed inside the resolved
+    workspace and committed to its parent git repo.
+
+    In detached mode (`detached=True`), the experiment is placed at
+    `(at or cwd)/<dir_name>` as a self-contained project. If
+    `defaults.detached_git` is enabled, a git repo is initialized inside
+    the experiment dir and an initial commit is created.
+    """
     config = load_config()
-    workspace = ensure_initialized()
 
     seed_request = seed_name or config.defaults.seed
     python_version = python or config.defaults.python or None
     use_date = (not no_date) and config.naming.date_prefix
     dir_name = _make_dir_name(name, use_date)
-    exp_dir = workspace / dir_name
+
+    if detached:
+        parent = (at or Path.cwd()).resolve()
+        parent.mkdir(parents=True, exist_ok=True)
+        exp_dir = parent / dir_name
+        workspace = None
+    else:
+        workspace = ensure_initialized()
+        exp_dir = workspace / dir_name
 
     if exp_dir.exists():
-        raise FileExistsError(f"Experiment directory already exists: {dir_name}")
+        raise FileExistsError(f"Experiment directory already exists: {exp_dir}")
 
     exp_dir.mkdir(parents=True)
 
@@ -102,7 +120,11 @@ def create(
 
     _write_novo_toml(exp_dir, experiment)
 
-    if config.defaults.auto_commit:
+    if detached:
+        if config.defaults.detached_git:
+            git.init(exp_dir)
+            git.add_and_commit(exp_dir, f"novo: create {name} (seed: {seed_identifier})")
+    elif config.defaults.auto_commit:
         git.add_and_commit(workspace, f"novo: create {name} (seed: {seed_identifier})")
 
     return experiment

@@ -17,6 +17,7 @@ from novo.core.config import get_workspace_path, load_config, save_config
 MARKER_NAME = ".novo"
 
 _workspace_override: Path | None = None
+_detached_forced: bool = False
 
 
 def set_workspace_override(path: Path | str | None) -> None:
@@ -28,6 +29,33 @@ def set_workspace_override(path: Path | str | None) -> None:
 def get_workspace_override() -> Path | None:
     """Return the current process-scoped workspace override, if any."""
     return _workspace_override
+
+
+def set_detached_forced(value: bool) -> None:
+    """Set the process-scoped `--detached` flag.
+
+    When forced, all workspace-bound commands should refuse to run; only
+    `novo new` proceeds (creating a self-contained experiment in cwd).
+    """
+    global _detached_forced
+    _detached_forced = bool(value)
+
+
+def is_detached_forced() -> bool:
+    """Return True when the current invocation was started with `--detached`."""
+    return _detached_forced
+
+
+def resolve_mode(cwd: Path | None = None) -> tuple[bool, Path | None]:
+    """Return `(is_detached, workspace)` for the current invocation.
+
+    `--detached` forces detached mode (workspace=None). Otherwise resolves
+    a workspace via override → cwd walk-up → config.workspace.path → XDG
+    default and returns (False, workspace).
+    """
+    if _detached_forced:
+        return True, None
+    return False, current_workspace(cwd)
 
 
 def discover(start: Path | None = None) -> Path | None:

@@ -325,6 +325,67 @@ def test_new_with_scoped_seed_flag(mock_uv, tmp_workspace, tmp_path, monkeypatch
     assert data["experiment"]["seed"] == "local:local-one"
 
 
+# --- detached mode ---
+
+
+@patch("novo.core.experiment.uv.uv_init")
+def test_new_detached_creates_in_cwd(mock_uv, tmp_workspace, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["--detached", "new", "stand-alone", "--no-date"])
+    assert result.exit_code == 0
+    assert (tmp_path / "stand-alone" / ".novo.toml").exists()
+    assert (tmp_path / "stand-alone" / ".git").is_dir()
+    assert "Detached at" in result.output
+    # Default workspace untouched.
+    assert not (tmp_workspace / "stand-alone").exists()
+
+
+@patch("novo.core.experiment.uv.uv_init")
+def test_new_detached_at_writes_under_at(mock_uv, tmp_workspace, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_workspace)
+    parent = tmp_path / "exp-parent"
+    parent.mkdir()
+    result = runner.invoke(
+        app,
+        ["--detached", "new", "atexp", "--no-date", "--at", str(parent)],
+    )
+    assert result.exit_code == 0
+    assert (parent / "atexp" / ".novo.toml").exists()
+
+
+def test_new_at_without_detached_errors(tmp_workspace, tmp_path):
+    result = runner.invoke(app, ["new", "x", "--at", str(tmp_path)])
+    assert result.exit_code == 1
+    assert "--at requires --detached" in result.output
+
+
+def test_list_in_detached_mode_errors(tmp_workspace):
+    result = runner.invoke(app, ["--detached", "list"])
+    assert result.exit_code == 1
+    assert "novo list" in result.output
+    assert "--detached" in result.output
+
+
+def test_info_in_detached_mode_errors(tmp_workspace):
+    result = runner.invoke(app, ["--detached", "info"])
+    assert result.exit_code == 1
+
+
+def test_search_in_detached_mode_errors(tmp_workspace):
+    result = runner.invoke(app, ["--detached", "search", "anything"])
+    assert result.exit_code == 1
+
+
+def test_delete_in_detached_mode_errors(tmp_workspace):
+    result = runner.invoke(app, ["--detached", "delete", "anything", "--force"])
+    assert result.exit_code == 1
+
+
+def test_open_in_detached_mode_errors(tmp_workspace):
+    result = runner.invoke(app, ["--detached", "open", "anything"])
+    assert result.exit_code == 1
+
+
 @patch("novo.core.experiment.uv.uv_init")
 def test_new_seed_ambiguity_errors_with_helpful_message(mock_uv, tmp_workspace, tmp_path):
     ws = tmp_path / "ambig-ws"
