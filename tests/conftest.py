@@ -37,6 +37,8 @@ def tmp_workspace(tmp_path, monkeypatch):
     monkeypatch.setattr("novo.utils.paths.default_workspace_dir", lambda: workspace)
     monkeypatch.setattr("novo.utils.paths.seeds_dir", lambda: data_dir / "seeds")
     monkeypatch.setattr("novo.core.seed.seeds_dir", lambda: data_dir / "seeds")
+    monkeypatch.setattr("novo.utils.paths.remotes_dir", lambda: data_dir / "remotes")
+    monkeypatch.setattr("novo.core.seed.remotes_dir", lambda: data_dir / "remotes")
 
     return workspace
 

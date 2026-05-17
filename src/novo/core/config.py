@@ -27,11 +27,17 @@ def load_config() -> NovoConfig:
 
 
 def save_config(config: NovoConfig) -> None:
-    """Save config to config.toml."""
+    """Save config to config.toml.
+
+    Per-remote `last_synced_at` lives in `<remote_dir>/.novo-remote.toml`
+    and is excluded here so the global config only holds the link spec.
+    """
     path = config_file()
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    data = config.model_dump()
+    data = config.model_dump(
+        exclude={"seeds": {"remotes": {"__all__": {"last_synced_at"}}}}
+    )
     with open(path, "wb") as f:
         tomli_w.dump(data, f)
 

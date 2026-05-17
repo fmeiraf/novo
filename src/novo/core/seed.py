@@ -15,6 +15,7 @@ import fnmatch
 import shutil
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Iterator
 
@@ -25,6 +26,7 @@ else:
 
 import tomli_w
 
+from novo.models.config import RemoteSeed
 from novo.models.scoped_seed import VALID_SCOPES, Scope, ScopedSeed, parse_seed_identifier
 from novo.models.seed import Seed
 from novo.utils import uv
@@ -231,36 +233,107 @@ def _copy_template(src: Path, dst: Path, exclude: list[str]) -> None:
             shutil.copy2(item, target)
 
 
-def add_from_git(url: str, name: str | None = None) -> Seed:
-    """Install a single-seed repo from a git URL into the user scope.
+def _default_remote_name(url: str) -> str:
+    name = url.rstrip("/").split("/")[-1]
+    if name.endswith(".git"):
+        name = name[:-4]
+    return name
 
-    Deprecated by `seed link` (phase 4) for multi-seed repositories.
+
+def list_remotes() -> list[RemoteSeed]:
+    """List every linked remote, populating `last_synced_at` from disk."""
+    from novo.core.config import load_config
+    from novo.core.remote import read_last_synced_at
+
+    config = load_config()
+    out: list[RemoteSeed] = []
+    for entry in config.seeds.remotes:
+        synced = read_last_synced_at(remotes_dir() / entry.name)
+        out.append(
+            RemoteSeed(name=entry.name, url=entry.url, ref=entry.ref, last_synced_at=synced)
+        )
+    return out
+
+
+def link_remote(url: str, name: str | None = None, ref: str | None = None) -> RemoteSeed:
+    """Register and clone a remote seed registry.
+
+    Re-linking an existing name updates the registered url/ref and reuses
+    the existing clone (idempotent). The remote is cloned into
+    `~/.local/share/novo/remotes/<name>/`.
     """
-    user_seeds = seeds_dir()
-    user_seeds.mkdir(parents=True, exist_ok=True)
+    from novo.core.config import load_config, save_config
+    from novo.core.remote import clone, write_metadata
 
     if name is None:
-        name = url.rstrip("/").split("/")[-1]
-        if name.endswith(".git"):
-            name = name[:-4]
+        name = _default_remote_name(url)
+    if not name:
+        raise ValueError(f"could not derive remote name from url: {url!r}")
 
-    target = user_seeds / name
+    ref_value = ref or ""  # empty = follow the cloned branch
+
+    config = load_config()
+    existing = {r.name: r for r in config.seeds.remotes}
+
+    target = remotes_dir() / name
+    if name in existing:
+        existing[name].url = url
+        existing[name].ref = ref_value
+    else:
+        config.seeds.remotes.append(RemoteSeed(name=name, url=url, ref=ref_value))
+
+    if not target.exists():
+        clone(url, target, ref=ref_value or None)
+
+    save_config(config)
+    now = datetime.now()
+    write_metadata(target, now)
+    return RemoteSeed(name=name, url=url, ref=ref_value, last_synced_at=now)
+
+
+def sync_remote(name: str | None = None) -> list[tuple[str, bool, str]]:
+    """Pull one or all linked remotes. Returns (name, ok, message) per remote."""
+    from novo.core.remote import pull, write_metadata
+
+    remotes = list_remotes()
+    if name is not None:
+        remotes = [r for r in remotes if r.name == name]
+        if not remotes:
+            raise ValueError(f"unknown remote: {name}")
+
+    results: list[tuple[str, bool, str]] = []
+    for remote in remotes:
+        target = remotes_dir() / remote.name
+        if not target.exists():
+            results.append((remote.name, False, "missing clone; re-link to recreate"))
+            continue
+        try:
+            pull(target, ref=remote.ref or None)
+            now = datetime.now()
+            write_metadata(target, now)
+            count = sum(1 for s in _iter_scope("remote", workspace=None) if s.remote == remote.name)
+            results.append((remote.name, True, f"pulled ✓ {count} seed{'s' if count != 1 else ''}"))
+        except subprocess.CalledProcessError as exc:
+            stderr = (exc.stderr or "").strip() or str(exc)
+            results.append((remote.name, False, stderr.splitlines()[-1] if stderr else "git pull failed"))
+    return results
+
+
+def unlink_remote(name: str) -> bool:
+    """Remove a remote from config and delete its clone. Returns False if unknown."""
+    from novo.core.config import load_config, save_config
+
+    config = load_config()
+    before = len(config.seeds.remotes)
+    config.seeds.remotes = [r for r in config.seeds.remotes if r.name != name]
+    if len(config.seeds.remotes) == before:
+        return False
+    save_config(config)
+
+    target = remotes_dir() / name
     if target.exists():
-        raise FileExistsError(f"Seed '{name}' already exists")
-
-    subprocess.run(
-        ["git", "clone", url, str(target)],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-
-    seed = _load_seed_from_dir(target)
-    if seed is None:
         shutil.rmtree(target)
-        raise ValueError("Cloned repo does not contain a valid seed.toml")
-
-    return seed
+    return True
 
 
 def create_from_experiment(experiment_dir: Path, name: str, description: str = "") -> Seed:

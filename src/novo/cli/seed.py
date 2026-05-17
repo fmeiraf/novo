@@ -5,7 +5,6 @@ from typing import Optional
 
 import typer
 from rich import print as rprint
-from rich.table import Table
 
 from novo.cli import app
 
@@ -13,21 +12,14 @@ seed_app = typer.Typer(help="Manage seed templates.")
 app.add_typer(seed_app, name="seed")
 
 
-_SCOPE_BADGE = {
-    "local": "[bold cyan]\\[local][/]",
-    "user": "[bold blue]\\[user][/]",
-    "remote": "[bold yellow]\\[remote][/]",
-    "builtin": "[dim]\\[builtin][/]",
-}
-
-
-def _scope_header(scope: str, remote: str | None) -> str:
+def _scope_header(scope: str, remote: str | None, remote_urls: dict[str, str]) -> str:
     if scope == "local":
         return "[bold cyan]WORKSPACE[/]  [dim](./.novo/seeds/)[/]"
     if scope == "user":
         return "[bold blue]USER[/]  [dim](~/.local/share/novo/seeds/)[/]"
     if scope == "remote":
-        return f"[bold yellow]REMOTE: {remote}[/]  [dim](~/.local/share/novo/remotes/{remote}/)[/]"
+        url = remote_urls.get(remote or "", f"~/.local/share/novo/remotes/{remote}/")
+        return f"[bold yellow]REMOTE: {remote}[/]  [dim]({url})[/]"
     if scope == "builtin":
         return "[dim bold]BUILTIN[/]"
     return scope
@@ -43,7 +35,7 @@ def seed_list(
     output_json: bool = typer.Option(False, "--json", help="Output as JSON."),
 ) -> None:
     """List available seeds, grouped by scope."""
-    from novo.core.seed import list_seeds
+    from novo.core.seed import list_remotes, list_seeds
     from novo.models.scoped_seed import VALID_SCOPES
 
     if scope is not None and scope not in VALID_SCOPES:
@@ -75,7 +67,8 @@ def seed_list(
         rprint("[dim]No seeds found.[/dim]")
         return
 
-    # Group while preserving the resolution order (local, user, remote, builtin).
+    remote_urls = {r.name: r.url for r in list_remotes()}
+
     groups: list[tuple[tuple[str, str | None], list]] = []
     for s in seeds:
         key = (s.scope, s.remote)
@@ -88,7 +81,7 @@ def seed_list(
         if not first:
             rprint("")
         first = False
-        rprint(_scope_header(scope_name, remote_name))
+        rprint(_scope_header(scope_name, remote_name, remote_urls))
         for s in items:
             desc = s.seed.description or ""
             rprint(f"  [cyan]{s.seed.name:<20}[/]  {desc}")
@@ -130,25 +123,62 @@ def seed_init(
         raise typer.Exit(1)
 
 
-@seed_app.command("add")
-def seed_add(
-    url: str = typer.Argument(help="Git URL of the seed repository"),
-    name: Optional[str] = typer.Option(None, "--name", "-n", help="Custom name for the seed"),
+@seed_app.command("link")
+def seed_link(
+    url: str = typer.Argument(help="Git URL of the remote seed registry"),
+    name: Optional[str] = typer.Option(None, "--name", "-n", help="Local name for the remote (defaults to repo name)"),
+    ref: Optional[str] = typer.Option(None, "--ref", "-r", help="Branch/tag/SHA to track (default: main)"),
 ) -> None:
-    """Install a single-seed repo from a git URL (user scope).
-
-    Deprecated: prefer `novo seed link` (phase 4) for multi-seed repos.
-    """
-    from novo.core.seed import add_from_git
+    """Link a remote seed registry. Idempotent: re-running updates the link."""
+    from novo.core.seed import link_remote
 
     try:
-        seed = add_from_git(url, name)
-        rprint(f"[green]Installed seed:[/green] {seed.name}")
-    except FileExistsError as e:
+        remote = link_remote(url, name=name, ref=ref)
+        rprint(f"[green]Linked remote:[/green] {remote.name}  [dim]({remote.url})[/]")
+        rprint(f"  [dim]ref:[/] {remote.ref}")
+        rprint(f"  [dim]use `novo seed sync {remote.name}` to refresh[/]")
+    except Exception as e:
+        rprint(f"[red]Error linking remote:[/red] {e}")
+        raise typer.Exit(1)
+
+
+@seed_app.command("sync")
+def seed_sync(
+    name: Optional[str] = typer.Argument(None, help="Remote name to sync (defaults to all)"),
+) -> None:
+    """Pull updates for one or all linked remotes."""
+    from novo.core.seed import sync_remote
+
+    try:
+        results = sync_remote(name)
+    except ValueError as e:
         rprint(f"[red]Error:[/red] {e}")
         raise typer.Exit(1)
-    except Exception as e:
-        rprint(f"[red]Error installing seed:[/red] {e}")
+
+    if not results:
+        rprint("[dim]No linked remotes.[/dim] Add one with [cyan]novo seed link <url>[/]")
+        return
+
+    exit_code = 0
+    for remote_name, ok, msg in results:
+        icon = "[green]✓[/]" if ok else "[red]✗[/]"
+        rprint(f"{icon} [bold]{remote_name}[/]  {msg}")
+        if not ok:
+            exit_code = 1
+    raise typer.Exit(exit_code)
+
+
+@seed_app.command("unlink")
+def seed_unlink(
+    name: str = typer.Argument(help="Name of the remote to unlink"),
+) -> None:
+    """Remove a linked remote (config entry and local clone)."""
+    from novo.core.seed import unlink_remote
+
+    if unlink_remote(name):
+        rprint(f"[green]Unlinked remote:[/green] {name}")
+    else:
+        rprint(f"[red]Unknown remote:[/red] {name}")
         raise typer.Exit(1)
 
 

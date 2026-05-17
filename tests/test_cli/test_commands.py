@@ -386,6 +386,120 @@ def test_open_in_detached_mode_errors(tmp_workspace):
     assert result.exit_code == 1
 
 
+# --- seed link / sync / unlink ---
+
+
+def _build_origin(path, seeds):
+    """Create a local git repo at `path` containing one subdir per seed."""
+    import subprocess
+
+    path.mkdir(parents=True)
+    subprocess.run(["git", "init"], cwd=path, check=True, capture_output=True)
+    for name, desc in seeds.items():
+        seed = path / name
+        seed.mkdir()
+        (seed / "template").mkdir()
+        (seed / "seed.toml").write_text(
+            f'[seed]\nname = "{name}"\ndescription = "{desc}"\n'
+        )
+    subprocess.run(
+        ["git", "-c", "user.email=t@t", "-c", "user.name=t", "add", "."],
+        cwd=path,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-m", "seed"],
+        cwd=path,
+        check=True,
+        capture_output=True,
+    )
+    return path
+
+
+def test_seed_link_clones_and_lists_remote_seeds(tmp_workspace, tmp_path):
+    origin = _build_origin(tmp_path / "origin", {"etl": "extract"})
+    result = runner.invoke(app, ["seed", "link", str(origin), "--name", "team"])
+    assert result.exit_code == 0
+    assert "Linked remote" in result.output
+
+    listed = runner.invoke(app, ["seed", "list"])
+    assert "REMOTE: team" in listed.output
+    assert "etl" in listed.output
+
+
+def test_seed_link_default_name_from_url(tmp_workspace, tmp_path):
+    origin = _build_origin(tmp_path / "novo-seeds", {"x": "y"})
+    result = runner.invoke(app, ["seed", "link", str(origin)])
+    assert result.exit_code == 0
+    listed = runner.invoke(app, ["seed", "list"])
+    assert "REMOTE: novo-seeds" in listed.output
+
+
+def test_seed_sync_picks_up_new_commits(tmp_workspace, tmp_path):
+    import subprocess
+
+    origin = _build_origin(tmp_path / "origin", {"first": "a"})
+    runner.invoke(app, ["seed", "link", str(origin), "--name", "team"])
+
+    # Add a second seed to the origin.
+    second = origin / "second"
+    second.mkdir()
+    (second / "template").mkdir()
+    (second / "seed.toml").write_text('[seed]\nname = "second"\ndescription = "b"\n')
+    subprocess.run(
+        ["git", "-c", "user.email=t@t", "-c", "user.name=t", "add", "."],
+        cwd=origin,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-m", "add"],
+        cwd=origin,
+        check=True,
+        capture_output=True,
+    )
+
+    result = runner.invoke(app, ["seed", "sync", "team"])
+    assert result.exit_code == 0
+    listed = runner.invoke(app, ["seed", "list"])
+    assert "second" in listed.output
+
+
+def test_seed_sync_no_remotes(tmp_workspace):
+    result = runner.invoke(app, ["seed", "sync"])
+    assert result.exit_code == 0
+    assert "No linked remotes" in result.output
+
+
+def test_seed_sync_unknown_remote_errors(tmp_workspace):
+    result = runner.invoke(app, ["seed", "sync", "nope"])
+    assert result.exit_code == 1
+    assert "unknown remote" in result.output
+
+
+def test_seed_unlink_removes_remote(tmp_workspace, tmp_path):
+    origin = _build_origin(tmp_path / "origin", {"x": "y"})
+    runner.invoke(app, ["seed", "link", str(origin), "--name", "team"])
+    result = runner.invoke(app, ["seed", "unlink", "team"])
+    assert result.exit_code == 0
+    assert "Unlinked" in result.output
+
+    listed = runner.invoke(app, ["seed", "list"])
+    assert "REMOTE: team" not in listed.output
+
+
+def test_seed_unlink_unknown_errors(tmp_workspace):
+    result = runner.invoke(app, ["seed", "unlink", "nope"])
+    assert result.exit_code == 1
+    assert "Unknown remote" in result.output
+
+
+def test_seed_add_is_removed(tmp_workspace):
+    result = runner.invoke(app, ["seed", "add", "anything"])
+    assert result.exit_code != 0  # `seed add` no longer registered
+
+
 @patch("novo.core.experiment.uv.uv_init")
 def test_new_seed_ambiguity_errors_with_helpful_message(mock_uv, tmp_workspace, tmp_path):
     ws = tmp_path / "ambig-ws"
