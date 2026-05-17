@@ -1,12 +1,8 @@
 """Main Textual TUI application."""
 
-from pathlib import Path
-
 from textual.app import App
 from textual.binding import Binding
 from textual.theme import Theme
-
-from novo.tui.screens.main import MainScreen
 
 NOVO_DARK = Theme(
     name="novo-dark",
@@ -32,6 +28,14 @@ class NovoApp(App):
     ]
 
     def on_mount(self) -> None:
+        from novo.core.workspace import is_detached_forced
+        from novo.tui.screens.detached import DetachedScreen
+        from novo.tui.screens.main import MainScreen
+
         self.register_theme(NOVO_DARK)
         self.theme = "novo-dark"
-        self.push_screen(MainScreen())
+
+        if is_detached_forced():
+            self.push_screen(DetachedScreen())
+        else:
+            self.push_screen(MainScreen())

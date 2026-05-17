@@ -23,6 +23,7 @@ from novo.tui.widgets.experiment_list import ExperimentList
 from novo.tui.widgets.file_preview import FilePreview
 from novo.tui.widgets.file_tree import FilteredDirectoryTree
 from novo.tui.widgets.search_bar import SearchBar
+from novo.tui.widgets.seed_picker import build_picker_rows
 from novo.tui.widgets.status_bar import StatusBar
 
 
@@ -79,11 +80,17 @@ class MainScreen(Screen):
         ("t", "focus_seed_tree", "Focus tree"),
         ("slash", "search", "Search"),
         ("question_mark", "help", "Help"),
+        # Seeds-tab actions (no-op elsewhere).
+        ("N", "new_seed", "New seed"),
+        ("l", "link_remote", "Link remote"),
+        ("u", "unlink_remote", "Unlink remote"),
+        ("r", "sync_remotes", "Sync remotes"),
     ]
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self._seeds: list = []
+        self._seeds_by_id: dict[str, ScopedSeed] = {}
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -112,6 +119,17 @@ class MainScreen(Screen):
     def on_mount(self) -> None:
         self._refresh_experiments()
         self._refresh_seeds()
+        self._update_mode_chip()
+
+    def _update_mode_chip(self) -> None:
+        from novo.core.workspace import current_workspace
+
+        try:
+            workspace = current_workspace()
+            status = self.query_one("#status-bar", StatusBar)
+            status.set_mode(f"WORKSPACE: {workspace.name}", detached=False)
+        except Exception:
+            pass
 
     # ---- Experiments tab ----
 
@@ -148,25 +166,38 @@ class MainScreen(Screen):
     # ---- Seeds tab ----
 
     def _refresh_seeds(self) -> None:
-        from novo.core.seed import list_seeds
+        from novo.core.config import load_config
+        from novo.core.seed import list_seeds, resolve_seed
 
         self._seeds = list_seeds()
+        self._seeds_by_id = {s.identifier: s for s in self._seeds}
+
+        default_id: str | None = None
+        try:
+            default_id = resolve_seed(load_config().defaults.seed).identifier
+        except ValueError:
+            default_id = None
+
+        rows = build_picker_rows(self._seeds, default_identifier=default_id)
+
         seed_list = self.query_one("#seed-list", OptionList)
         seed_list.clear_options()
-        for scoped in self._seeds:
-            badge = f"[{scoped.scope}]"
-            label = f"{badge} {scoped.seed.name}"
-            seed_list.add_option(Option(label, id=scoped.identifier))
+        for row in rows:
+            seed_list.add_option(Option(row.label, id=row.id, disabled=row.disabled))
 
     def on_option_list_option_highlighted(self, event: OptionList.OptionHighlighted) -> None:
         if event.option_list.id != "seed-list":
             return
-        if event.option_index >= len(self._seeds):
+
+        opt = event.option
+        if opt is None or opt.disabled or opt.id is None:
             return
 
-        scoped = self._seeds[event.option_index]
-        detail = self.query_one("#seed-detail", Static)
+        scoped = self._seeds_by_id.get(opt.id)
+        if scoped is None:
+            return
 
+        detail = self.query_one("#seed-detail", Static)
         detail.update(_format_seed_detail(scoped))
 
         template_dir = Path(scoped.seed.path) / "template"
@@ -218,6 +249,15 @@ class MainScreen(Screen):
 
     def action_show_seeds(self) -> None:
         self.query_one(TabbedContent).active = "tab-seeds"
+        self.query_one("#status-bar", StatusBar).set_context("seeds")
+
+    @on(TabbedContent.TabActivated)
+    def _on_tab_activated(self, event: TabbedContent.TabActivated) -> None:
+        status = self.query_one("#status-bar", StatusBar)
+        if event.pane.id == "tab-seeds":
+            status.set_context("seeds")
+        else:
+            status.set_context("main")
 
     def action_focus_seed_tree(self) -> None:
         if self._active_tab() != "tab-seeds":
@@ -274,7 +314,103 @@ class MainScreen(Screen):
         self.notify(
             "[b]e[/]xperiments  [b]s[/]eeds  [b]n[/]ew  [b]enter[/] open  "
             "[b]d[/]elete  [b]/[/]search  [b]q[/]uit\n"
-            "Seeds tab: [b]t[/] focus file tree, [b]l/enter[/] expand, [b]j/k[/] navigate",
+            "Seeds tab: [b]N[/]ew seed  [b]l[/]ink remote  [b]u[/]nlink  [b]r[/] sync remotes  "
+            "[b]t[/] focus tree  [b]l/enter[/] expand",
             title="Keybindings",
-            timeout=6,
+            timeout=8,
         )
+
+    # ---- Seeds-tab actions (no-ops outside the seeds tab) ----
+
+    def action_link_remote(self) -> None:
+        if self._active_tab() != "tab-seeds":
+            return
+        from novo.tui.screens.remote_link import RemoteLinkScreen
+
+        self.app.push_screen(RemoteLinkScreen(), callback=self._on_remote_linked)
+
+    def _on_remote_linked(self, ok: bool) -> None:
+        if not ok:
+            return
+        self._refresh_seeds()
+        self._run_sync(None)
+
+    def action_unlink_remote(self) -> None:
+        if self._active_tab() != "tab-seeds":
+            return
+
+        seed_list = self.query_one("#seed-list", OptionList)
+        if seed_list.highlighted is None:
+            self.notify("Highlight a remote seed first", severity="warning")
+            return
+        try:
+            opt = seed_list.get_option_at_index(seed_list.highlighted)
+        except IndexError:
+            return
+        if opt is None or opt.disabled or opt.id is None:
+            return
+        scoped = self._seeds_by_id.get(opt.id)
+        if scoped is None or scoped.scope != "remote" or not scoped.remote:
+            self.notify("Pick a remote seed to unlink its registry", severity="warning")
+            return
+
+        remote_name = scoped.remote
+        from novo.tui.screens.confirm import ConfirmScreen
+
+        self.app.push_screen(
+            ConfirmScreen(f"Unlink remote '{remote_name}' (drops all its seeds)?"),
+            callback=lambda ok: self._on_unlink_confirmed(ok, remote_name),
+        )
+
+    def _on_unlink_confirmed(self, confirmed: bool, name: str) -> None:
+        if not confirmed:
+            return
+        from novo.core.seed import unlink_remote
+
+        if unlink_remote(name):
+            self.notify(f"Unlinked remote: {name}")
+            self._refresh_seeds()
+        else:
+            self.notify(f"Unknown remote: {name}", severity="error")
+
+    def action_sync_remotes(self) -> None:
+        if self._active_tab() != "tab-seeds":
+            return
+        self._run_sync(None)
+
+    def _run_sync(self, name: str | None) -> None:
+        from novo.core.seed import sync_remote
+
+        try:
+            results = sync_remote(name)
+        except ValueError as err:
+            self.notify(str(err), severity="error")
+            return
+
+        if not results:
+            self.notify("No linked remotes — press l to link one", severity="information")
+            self.query_one("#status-bar", StatusBar).set_sync_note(None)
+            return
+
+        ok_count = sum(1 for _, ok, _ in results if ok)
+        summary = " · ".join(f"{n} {'✓' if ok else '⚠'}" for n, ok, _ in results)
+        self.query_one("#status-bar", StatusBar).set_sync_note(
+            f"sync: {ok_count}/{len(results)}  {summary}"
+        )
+        if ok_count == len(results):
+            self.notify(f"Synced {ok_count} remote{'s' if ok_count != 1 else ''}")
+        else:
+            failures = [f"{n}: {msg}" for n, ok, msg in results if not ok]
+            self.notify("\n".join(failures), severity="error", title="Sync failures")
+        self._refresh_seeds()
+
+    def action_new_seed(self) -> None:
+        if self._active_tab() != "tab-seeds":
+            return
+        from novo.tui.screens.new_seed import NewSeedScreen
+
+        self.app.push_screen(NewSeedScreen(), callback=self._on_seed_created)
+
+    def _on_seed_created(self, ok: bool) -> None:
+        if ok:
+            self._refresh_seeds()
