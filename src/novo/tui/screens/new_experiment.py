@@ -5,6 +5,7 @@ from textual.containers import Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, Select, Static
 
+from novo.tui.widgets.seed_picker import SeedPicker
 from novo.utils.uv import list_python_versions
 
 
@@ -16,9 +17,9 @@ class NewExperimentScreen(ModalScreen[bool]):
         align: center middle;
     }
     #new-experiment-modal {
-        width: 60;
+        width: 70;
         height: auto;
-        max-height: 80%;
+        max-height: 90%;
         border: solid $primary;
         background: $surface;
         padding: 1 2;
@@ -44,6 +45,8 @@ class NewExperimentScreen(ModalScreen[bool]):
     ]
 
     def compose(self) -> ComposeResult:
+        from novo.core.workspace import is_detached_forced
+
         with Vertical(id="new-experiment-modal"):
             yield Static("[b]New Experiment[/]", id="modal-title")
 
@@ -57,12 +60,7 @@ class NewExperimentScreen(ModalScreen[bool]):
             yield Input(placeholder="web, async, ml", id="tags-input")
 
             yield Label("Seed")
-            options = self._get_seed_options()
-            yield Select(
-                options,
-                value=self._get_default_seed_value(options),
-                id="seed-select",
-            )
+            yield SeedPicker(hide_workspace=is_detached_forced(), id="seed-picker")
 
             yield Label("Python version")
             yield Select(
@@ -75,32 +73,6 @@ class NewExperimentScreen(ModalScreen[bool]):
             with Vertical(classes="buttons"):
                 yield Button("Create", variant="primary", id="create-btn")
                 yield Button("Cancel", variant="default", id="cancel-btn")
-
-    def _get_seed_options(self) -> list[tuple[str, str]]:
-        from novo.core.seed import list_seeds
-
-        seeds = list_seeds()
-        if not seeds:
-            return [("builtin:default", "builtin:default")]
-        # Display the scoped identifier so users can distinguish shadowed seeds.
-        return [(f"{s.identifier}", s.identifier) for s in seeds]
-
-    def _get_default_seed_value(self, options: list[tuple[str, str]]) -> str:
-        """Pick which option the Select should start on.
-
-        Uses `config.defaults.seed` (resolved through scope rules if unprefixed),
-        else falls back to the first option.
-        """
-        from novo.core.config import load_config
-        from novo.core.seed import resolve_seed
-
-        if not options:
-            return ""
-        try:
-            scoped = resolve_seed(load_config().defaults.seed)
-            return scoped.identifier
-        except ValueError:
-            return options[0][1]
 
     def _get_python_options(self) -> list[tuple[str, str]]:
         versions = list_python_versions()
@@ -123,7 +95,7 @@ class NewExperimentScreen(ModalScreen[bool]):
         desc = self.query_one("#desc-input", Input).value.strip()
         tags_str = self.query_one("#tags-input", Input).value.strip()
         tags = [t.strip() for t in tags_str.split(",") if t.strip()] if tags_str else []
-        seed = self.query_one("#seed-select", Select).value
+        seed = self.query_one("#seed-picker", SeedPicker).selected_identifier
         python = self.query_one("#python-select", Select).value
 
         from novo.core.experiment import create
