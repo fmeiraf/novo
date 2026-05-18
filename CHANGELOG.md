@@ -7,22 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-05-18
+
 ### Added
-- **Workspace markers and multi-workspace support.** Any directory with a `.novo/` marker is a valid workspace (like `.git/`). `--workspace <path>` / `NOVO_WORKSPACE` flag/env pin a specific workspace; otherwise novo walks up from cwd looking for a marker, then falls back to `config.workspace.path` or the XDG default. `ensure_initialized()` silently migrates pre-marker workspaces on first touch.
+- **Workspace markers and multi-workspace support.** Any directory with a `.novo/` marker is a valid workspace (like `.git/`). `--workspace <path>` / `NOVO_WORKSPACE` flag/env pin a specific workspace; otherwise novo walks up from cwd looking for a marker, then falls back to `config.workspace.path` or auto-detach. `ensure_initialized()` silently migrates pre-marker workspaces on first touch.
+- **Auto-detach when no workspace is found.** If a command runs in a directory with no `.novo/` marker in its ancestry and no `workspace.path` configured, novo now treats it as detached: `novo new` drops a self-contained experiment in cwd (with its own git repo) instead of silently materializing the hidden XDG default workspace; read-only commands (`list / info / search / delete / open`) refuse cleanly with a `novo init` tip. A one-line hint surfaces the mode switch. New `core.workspace.is_detached()` / `is_auto_detached()` accessors.
 - **Scope-aware seed resolution.** Seeds live in four scopes: `local` (`<workspace>/.novo/seeds/`), `user`, `remote`, and `builtin`. `--seed` accepts both bare names and explicit scoped forms (`local:foo`, `user:foo`, `remote:team/foo`, `builtin:foo`); bare names error on ambiguity. `.novo.toml` records the scoped identifier so seed origin stays unambiguous.
 - **Detached mode.** `novo --detached` skips workspace lookup. `novo --detached new <name>` creates a self-contained experiment at `(--at <path> or cwd)/<name>` with its own git repo (gated on the new `defaults.detached_git` config knob). The other registry-bound commands refuse cleanly. TUI launches a minimal landing screen with direct actions.
 - **Remote seed registries.** `novo seed link <url>` clones a git repo of seeds into `~/.local/share/novo/remotes/<name>/`; every subdirectory with a `seed.toml` surfaces as `remote:<name>/<seed>`. `novo seed sync [<name>]` pulls one or all; `novo seed unlink <name>` removes the config entry + clone. Idempotent.
 - **TUI overhaul.** New `SeedPicker` widget (scope-grouped OptionList with type-ahead filter and `(default)` indicator); `NewExperimentScreen` uses it. New screens: `DetachedScreen` (minimal landing), `RemoteLinkScreen`, `NewSeedScreen`. Seeds tab gains scope grouping (reuses the picker's row builder) and `N`/`l`/`u`/`r` keybindings. Status bar gains a mode chip and a sync-note slot.
 - **New CLI commands and flags:** `novo seed link/sync/unlink`, `novo seed init --scope`, `novo seed list --scope/--json`, `novo new --detached/--at`, `--workspace`/`-W` global flag, `defaults.detached_git` config key.
 - **New `docs/seeds.md`** covering scopes, identifier syntax, and the remote sync workflow.
+- **Local Docker test rig** (`make docker-shell` / `docker-shell-persistent`) with an editable install of the bind-mounted source.
 
 ### Changed
 - `novo init` now writes a `.novo/` marker at the target path instead of mutating `config.workspace.path`. To pin a default workspace, run `novo config set workspace.path <path>` explicitly.
 - `novo seed list` output is grouped by scope (WORKSPACE / USER / REMOTE: \<name> / BUILTIN) with origin badges; `--json` includes `scope`, `remote`, `identifier`, and `path` per seed.
 - `RemoteSeed.ref` defaults to `""` (follow the cloned branch) rather than `"main"`, so registries on `master` or other branches work without explicit pinning.
+- `core.config.get_workspace_path()` now returns `None` when `workspace.path` is unset (previously returned the XDG default). Use `core.workspace.current_workspace()` for the active workspace with full resolution.
+
+### Fixed
+- `novo new` no longer silently swallows a bad `--seed` value and proceeds to create a bare `uv init` directory. A malformed (`remote:foo` with no `/`), unknown, or ambiguous identifier now aborts before any files are written and prints the parse / not-found / ambiguity error. Internally, `apply_seed(identifier, ...)` was split: callers resolve via `resolve_seed()` first and then call `apply_seed(scoped, target_dir)`.
 
 ### Removed
 - `novo seed add <url>` — replaced by `novo seed link` for multi-seed repos. To install a single-seed repo, either reshape it into a multi-seed layout or `git clone` into `~/.local/share/novo/seeds/<name>/` manually.
+- Silent XDG-default workspace fallback. `~/.local/share/novo/workspace/` is no longer auto-used; opt in by setting `workspace.path` explicitly, or rely on auto-detach.
 
 ## [0.1.4] - 2026-05-06
 
