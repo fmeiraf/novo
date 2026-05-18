@@ -321,6 +321,66 @@ uv tool uninstall novo
 
 ---
 
+## Troubleshooting
+
+Common gotchas, especially when upgrading from older versions of novo.
+
+### Every `novo` run lands experiments in the same old workspace
+
+**Symptom.** You run `novo` (or `novo new …`) from a directory that has no `.novo/` marker, but every experiment ends up inside one specific old workspace tree.
+
+**Cause.** Pre-0.2.0 `novo init` silently wrote the target path into the global config as `workspace.path`. Newer versions don't touch the config on `init` (they only write the per-directory `.novo/` marker), but they still honor a previously-written `workspace.path` as the fallback workspace whenever cwd walk-up finds no marker — so an `init` you ran months ago can still steer every run.
+
+**Fix.** Clear the pin:
+
+```bash
+novo config set workspace.path ""
+```
+
+After that, `novo` from a non-workspace cwd auto-detaches the way 0.2.0+ intends (the TUI lands on the minimal `DetachedScreen`, and `novo new …` drops a self-contained experiment in cwd).
+
+### I can't find my config file at `~/.config/novo/config.toml`
+
+**Cause.** `platformdirs` resolves config paths per-OS:
+
+| OS | Config file path |
+|----|------------------|
+| Linux | `~/.config/novo/config.toml` |
+| macOS | `~/Library/Application Support/novo/config.toml` |
+| Windows | `%APPDATA%\novo\config.toml` |
+
+**Fix.** Don't edit the file directly — use `novo config show` / `get` / `set` so you don't have to think about the path. The README's TOML snippets show the schema; the actual file lives wherever your platform stores config.
+
+### `novo: command not found` after install
+
+**Fix.** Add `~/.local/bin` to your `PATH` and reopen the terminal:
+
+```bash
+uv tool update-shell
+```
+
+### `uv tool upgrade novo` says nothing changed but I'm still on an old version
+
+**Fix.** Force a clean reinstall:
+
+```bash
+uv tool install --reinstall novo
+```
+
+This invalidates uv's wheel cache; `--force` alone doesn't.
+
+### `novo open <name>` opens a new shell instead of `cd`-ing me into the experiment
+
+**Cause.** The shell-integration eval isn't installed.
+
+**Fix.** Add this to your `~/.zshrc` or `~/.bashrc`, then reopen the shell:
+
+```bash
+eval "$(novo --shell-init)"
+```
+
+---
+
 ## Documentation
 
 Deeper docs live in [`docs/`](docs/):
