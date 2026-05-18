@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-05-18
+
+### Fixed
+- TUI crashed on launch (both workspace and `--detached` modes) with `AttributeError: 'NoneType' object has no attribute 'render_strips'`. `StatusBar` defined a `_render()` helper that shadowed Textual's framework hook `Widget._render()` (which is supposed to return the `Visual` to draw), so the widget rendered as `None`. Renamed the helper to `_repaint()` and added a regression test that asserts subclasses don't override `_render`.
+
+### Changed
+- `r` on the Seeds tab now syncs **just the highlighted remote** when a remote seed is selected, and falls back to syncing all linked remotes otherwise. Previously `r` always called `sync_remote(None)`, so there was no way to refresh a single registry from the TUI.
+
+### Docs
+- README documents `novo new --no-date`, `--python <ver>`, and `novo seed init --path <dir>` — the last is the recommended path for authoring a remote seed registry, since it scaffolds seeds straight into a cloned registry repo without bouncing through `user`/`local` scope.
+
 ## [0.2.0] - 2026-05-18
 
 ### Added
