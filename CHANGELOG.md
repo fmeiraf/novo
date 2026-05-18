@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-05-18
+
+### Fixed
+- TUI "New Experiment" modal silently used workspace mode regardless of how the app was launched. `novo --detached new …` (and any auto-detached launch) would land the experiment in whatever workspace `cwd`'s walk-up could find a `.novo/` marker for, instead of in cwd as the detached contract promised. The modal now propagates `detached=is_detached()` to `core.experiment.create()` (matching the CLI) and the success notification reports the detached location.
+
+> [0.2.1] was published to TestPyPI only; this is its first PyPI cut.
+
 ## [0.2.1] - 2026-05-18
 
 ### Fixed
