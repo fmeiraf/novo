@@ -98,7 +98,12 @@ class NewExperimentScreen(ModalScreen[bool]):
         seed = self.query_one("#seed-picker", SeedPicker).selected_identifier
         python = self.query_one("#python-select", Select).value
 
+        from pathlib import Path
+
         from novo.core.experiment import create
+        from novo.core.workspace import is_detached
+
+        detached = is_detached()
 
         try:
             exp = create(
@@ -107,8 +112,13 @@ class NewExperimentScreen(ModalScreen[bool]):
                 python=python if python else None,
                 description=desc,
                 tags=tags,
+                detached=detached,
             )
-            self.notify(f"Created: {exp.dir_name}", severity="information")
+            if detached:
+                location = Path.cwd() / exp.dir_name
+                self.notify(f"Created (detached): {location}", severity="information")
+            else:
+                self.notify(f"Created: {exp.dir_name}", severity="information")
             self.dismiss(True)
         except Exception as e:
             self.notify(f"Error: {e}", severity="error")
