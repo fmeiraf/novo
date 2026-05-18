@@ -3,7 +3,7 @@
 from textual.app import ComposeResult
 from textual.containers import Vertical
 from textual.screen import ModalScreen
-from textual.widgets import Button, Input, Label, Select, Static
+from textual.widgets import Button, Checkbox, Input, Label, Select, Static
 
 from novo.tui.widgets.seed_picker import SeedPicker
 from novo.utils.uv import list_python_versions
@@ -70,6 +70,11 @@ class NewExperimentScreen(ModalScreen[bool]):
                 allow_blank=True,
             )
 
+            yield Checkbox(
+                "Skip date prefix in directory name",
+                id="no-date-check",
+            )
+
             with Vertical(classes="buttons"):
                 yield Button("Create", variant="primary", id="create-btn")
                 yield Button("Cancel", variant="default", id="cancel-btn")
@@ -97,6 +102,7 @@ class NewExperimentScreen(ModalScreen[bool]):
         tags = [t.strip() for t in tags_str.split(",") if t.strip()] if tags_str else []
         seed = self.query_one("#seed-picker", SeedPicker).selected_identifier
         python = self.query_one("#python-select", Select).value
+        no_date = self.query_one("#no-date-check", Checkbox).value
 
         from pathlib import Path
 
@@ -112,6 +118,7 @@ class NewExperimentScreen(ModalScreen[bool]):
                 python=python if python else None,
                 description=desc,
                 tags=tags,
+                no_date=no_date,
                 detached=detached,
             )
             if detached:
