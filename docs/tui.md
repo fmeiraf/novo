@@ -75,9 +75,9 @@ Minimal landing screen for `novo --detached` launches (and auto-detached runs, w
 
 ### NewExperimentScreen
 
-Modal fields: name, description, tags (comma-separated), seed (SeedPicker), Python version (Select), and a "Skip date prefix" checkbox (mirrors the `--no-date` CLI flag — directory name becomes `<name>` instead of `<YYYY-MM-DD>-<name>`).
+Modal fields: name, description, tags (comma-separated), seed (SeedPicker), Python version (Select), and a "Skip date prefix" checkbox (mirrors the `--no-date` CLI flag — directory name becomes `<name>` instead of `<YYYY-MM-DD>-<name>`). The modal is 100 columns wide (capped at 95% of the terminal) and its form fields live inside a `VerticalScroll` sized `1fr`, with the Create / Cancel buttons docked at a fixed `height: 3` at the bottom — so on short terminals (≲ 24 rows) the form scrolls internally and the action buttons stay reachable.
 
-The SeedPicker is constructed with `hide_workspace=is_detached_forced()` so detached launches omit the WORKSPACE section.
+The SeedPicker is constructed with `hide_workspace=False` (the default) regardless of mode. Local seeds appear at the top whenever `current_workspace()` resolves to a real workspace — including `--detached` launches from inside a workspace directory — so users can pick a `local:foo` seed for a detached experiment. When the cwd genuinely has no workspace context (auto-detached), `list_seeds()` returns no `local` entries and `build_picker_rows()` drops the empty WORKSPACE section automatically.
 
 On submit, calls `core.experiment.create(seed_name=picker.selected_identifier, no_date=…, detached=is_detached(), …)` — `.novo.toml` records the scoped form. `detached` is read live from `core.workspace.is_detached()` so the modal lands the experiment in cwd when the app was launched with `--detached` (or auto-detached), instead of falling through to workspace mode.
 
@@ -101,7 +101,7 @@ Reusable yes/no dialog. Accepts a message string, returns `True`/`False`. Binds 
 | `ExperimentCard` | Displays selected experiment details: name, created date, seed, Python version, tags, description, directory, `.claude`/`.agents` presence. |
 | `SearchBar` | Horizontal input with `> ` prompt. Posts `Changed(query)` on each keystroke. |
 | `StatusBar` | Three slots: mode chip (`WORKSPACE: foo` / `DETACHED`), key bindings (context-aware: `main`, `seeds`, `search`, `new`, `confirm`), and a transient sync note for `seed sync` results. Rendering is exposed via `compose_text()` for testability. |
-| `SeedPicker` | OptionList-based scope-aware picker. Sections rendered as disabled header rows; entries show `name  description  [scope-badge]` plus `(default)` on the resolved default. Type-ahead `Input` filters by name+description, dropping empty sections. `hide_workspace=True` removes the local section (used in detached mode). `compact=True` (used by the Seeds tab, not the modal) drops the in-row description since the side detail pane shows it. |
+| `SeedPicker` | OptionList-based scope-aware picker. Section headers (`█ WORKSPACE`, `█ USER`, `█ REMOTE: <name>`, `█ BUILTIN`) are rendered as disabled rows with a coloured block bar in the scope's accent colour; an empty disabled row separates adjacent sections. Entries are indented under the bar and show `name  description  [scope-badge]` plus `(default)` on the resolved default; the `[scope]` badge picks up the scope's accent colour so filtered views (where the header may be off-screen) still read at a glance. Type-ahead `Input` filters by name+description, dropping empty sections. The picker opens scrolled to the top with no auto-highlight — the `(default)` row badge marks which seed will be used if the form is submitted without picking one, and consumers fall back to that via `seed_name=None`. `hide_workspace=True` removes the local section (kept as a knob; the modal no longer passes it). `compact=True` (used by the Seeds tab, not the modal) drops the in-row description since the side detail pane shows it. |
 
 ### `build_picker_rows()` (in `seed_picker.py`)
 

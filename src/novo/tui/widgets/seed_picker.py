@@ -15,7 +15,17 @@ _SCOPE_TITLES = {
     "local": ("WORKSPACE", "bold cyan"),
     "user": ("USER", "bold blue"),
     "remote": ("REMOTE", "bold yellow"),
-    "builtin": ("BUILTIN", "bold"),
+    "builtin": ("BUILTIN", "bold white"),
+}
+
+# The per-row scope badge picks up the same accent as the section header so a
+# user scrolling through filtered results (where the header may be off-screen)
+# can still tell at a glance which scope a seed belongs to.
+_SCOPE_BADGE_STYLES = {
+    "local": "cyan",
+    "user": "blue",
+    "remote": "yellow",
+    "builtin": "dim",
 }
 
 
@@ -33,21 +43,39 @@ class PickerRow:
 
 
 def _scope_header(scope: str, remote: str | None) -> Text:
+    """Render a section header line: a colored block bar, then the title.
+
+    The leading `█` glyph picks up the scope's accent colour so the section
+    boundary reads as a coloured block in the option list rather than just
+    another bold-text row — which was the readability complaint that drove
+    the redesign.
+    """
     title, style = _SCOPE_TITLES.get(scope, (scope.upper(), "bold"))
-    text = Text(title, style=style)
+    text = Text()
+    text.append("█ ", style=style)
+    text.append(title, style=style)
     if scope == "remote" and remote:
         text.append(f": {remote}", style=style)
     return text
 
 
+def _spacer_row() -> "PickerRow":
+    """An empty disabled row inserted between scope sections for breathing room."""
+    return PickerRow(label=Text(""), id=None, disabled=True)
+
+
 def _option_label(scoped: ScopedSeed, is_default: bool, *, compact: bool = False) -> Text:
     """Format one seed row.
 
-    Default: `name  description  [scope]  (default)`.
+    Default: `  name  description  [scope]  (default)`.
     Compact (used by the Seeds tab, which renders the description in
-    a side panel): `name  [scope]  (default)`.
+    a side panel): `  name  [scope]  (default)`.
+
+    Two leading spaces indent the entry under the section header bar so
+    the visual grouping reads top-down.
     """
     text = Text()
+    text.append("  ")
     text.append(scoped.seed.name, style="cyan")
     if not compact:
         desc = (scoped.seed.description or "").strip()
@@ -55,8 +83,9 @@ def _option_label(scoped: ScopedSeed, is_default: bool, *, compact: bool = False
             text.append("  ")
             text.append(desc)
     badge = scoped.scope if scoped.scope != "remote" else f"remote:{scoped.remote}"
+    badge_style = _SCOPE_BADGE_STYLES.get(scoped.scope, "dim")
     text.append("  ")
-    text.append(f"[{badge}]", style="dim")
+    text.append(f"[{badge}]", style=badge_style)
     if is_default:
         text.append("  ")
         text.append("(default)", style="bold green")
@@ -93,6 +122,11 @@ def build_picker_rows(
     for scoped in seeds:
         key = (scoped.scope, scoped.remote)
         if key != last_key:
+            if last_key is not None:
+                # Blank disabled row between sections — pure visual breathing
+                # room. Navigation skips disabled rows so this is invisible to
+                # the keyboard cursor.
+                rows.append(_spacer_row())
             rows.append(
                 PickerRow(
                     label=_scope_header(scoped.scope, scoped.remote),
@@ -122,7 +156,7 @@ class SeedPicker(Vertical):
         margin-bottom: 0;
     }
     SeedPicker OptionList {
-        height: 10;
+        height: 12;
         margin-top: 0;
     }
     """
@@ -165,14 +199,19 @@ class SeedPicker(Vertical):
             hide_workspace=self._hide_workspace,
         )
 
-        default_index: int | None = None
-        for i, row in enumerate(rows):
+        for row in rows:
             opts.add_option(Option(row.label, id=row.id, disabled=row.disabled))
-            if row.id is not None and row.id == self._default_id:
-                default_index = i
 
-        if default_index is not None:
-            opts.highlighted = default_index
+        # Intentionally do NOT auto-highlight the default seed. Highlighting
+        # a row makes Textual's OptionList scroll the viewport to keep that
+        # row visible — and since the default (`builtin:default`) sits at
+        # the bottom of the scope order (local → user → remote → builtin),
+        # the picker would open scrolled past the WORKSPACE / USER sections,
+        # hiding the top of the list. We rely on the `(default)` badge in
+        # the row label to tell the user which seed is the default, and on
+        # the modal's `seed_name=None` fallback to use that default if the
+        # user submits without navigating.
+        opts.scroll_home(animate=False)
 
     @on(Input.Changed, "#seed-filter")
     def _on_filter_changed(self, event: Input.Changed) -> None:

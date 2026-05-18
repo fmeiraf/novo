@@ -29,13 +29,37 @@ def test_build_rows_inserts_header_per_scope_in_order():
         _scoped("delta", "builtin"),
     ]
     rows = build_picker_rows(seeds)
-    # 4 headers + 4 seeds
-    assert len(rows) == 8
-    headers = [r for r in rows if r.disabled]
-    assert _label(headers[0]) == "WORKSPACE"
-    assert _label(headers[1]) == "USER"
-    assert _label(headers[2]) == "REMOTE: team"
-    assert _label(headers[3]) == "BUILTIN"
+    # 4 headers + 4 seeds + 3 between-section spacers
+    assert len(rows) == 11
+    # Section headers carry a colored block prefix (`█ `); filter spacer rows
+    # (empty labels) out before checking title order.
+    headers = [r for r in rows if r.disabled and _label(r).strip()]
+    assert _label(headers[0]) == "█ WORKSPACE"
+    assert _label(headers[1]) == "█ USER"
+    assert _label(headers[2]) == "█ REMOTE: team"
+    assert _label(headers[3]) == "█ BUILTIN"
+
+
+def test_build_rows_inserts_spacer_between_sections():
+    # The Seeds tab and the New Experiment modal both ran together visually
+    # because adjacent sections had no breathing room. A disabled spacer row
+    # with an empty label sits between sections; navigation skips it.
+    seeds = [_scoped("alpha", "user"), _scoped("beta", "builtin")]
+    rows = build_picker_rows(seeds)
+    # USER header, alpha, SPACER, BUILTIN header, beta
+    assert len(rows) == 5
+    assert rows[2].disabled is True
+    assert _label(rows[2]) == ""
+
+
+def test_build_rows_no_spacer_before_first_section():
+    # The leading section should not have a spacer above it (that would
+    # waste a row at the top of the picker).
+    seeds = [_scoped("alpha", "user")]
+    rows = build_picker_rows(seeds)
+    # USER header + alpha, nothing else.
+    assert len(rows) == 2
+    assert _label(rows[0]).startswith("█ USER")
 
 
 def test_build_rows_seed_row_has_identifier_as_id():
@@ -87,9 +111,10 @@ def test_build_rows_filter_matches_description():
 def test_build_rows_filter_hides_empty_section():
     seeds = [_scoped("alpha", "user"), _scoped("beta", "builtin")]
     rows = build_picker_rows(seeds, filter_query="alp")
-    # Only USER section + alpha; BUILTIN header dropped entirely.
+    # Only USER section + alpha; BUILTIN header dropped entirely. No spacer
+    # because there's only one section after filtering.
     assert len(rows) == 2
-    assert _label(rows[0]) == "USER"
+    assert _label(rows[0]).endswith("USER")
 
 
 def test_build_rows_remote_badge_includes_remote_name():

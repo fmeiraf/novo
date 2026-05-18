@@ -1,7 +1,7 @@
 """Create experiment modal screen."""
 
 from textual.app import ComposeResult
-from textual.containers import Vertical
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, Input, Label, Select, Static
 
@@ -12,17 +12,31 @@ from novo.utils.uv import list_python_versions
 class NewExperimentScreen(ModalScreen[bool]):
     """Modal for creating a new experiment."""
 
+    # Layout note: the form body lives inside a VerticalScroll sized at 1fr,
+    # with the title pinned above and the action buttons pinned below at a
+    # fixed height. On short terminals (≲ 24 rows) the modal hits
+    # `max-height: 90%`, the form scrolls internally, and Create/Cancel
+    # stay visible — previously the form was a plain Vertical, so the
+    # bottom of the modal (checkbox + buttons) was clipped invisibly.
     DEFAULT_CSS = """
     NewExperimentScreen {
         align: center middle;
     }
     #new-experiment-modal {
-        width: 70;
+        width: 100;
+        max-width: 95%;
         height: auto;
         max-height: 90%;
         border: solid $primary;
         background: $surface;
         padding: 1 2;
+    }
+    #new-experiment-modal #modal-title {
+        height: 1;
+    }
+    #new-experiment-modal #new-experiment-form {
+        height: 1fr;
+        padding-right: 1;
     }
     #new-experiment-modal Label {
         margin-top: 1;
@@ -31,9 +45,9 @@ class NewExperimentScreen(ModalScreen[bool]):
         margin-bottom: 0;
     }
     #new-experiment-modal .buttons {
-        margin-top: 1;
         layout: horizontal;
         height: 3;
+        margin-top: 1;
     }
     #new-experiment-modal .buttons Button {
         margin-right: 1;
@@ -45,37 +59,41 @@ class NewExperimentScreen(ModalScreen[bool]):
     ]
 
     def compose(self) -> ComposeResult:
-        from novo.core.workspace import is_detached
-
         with Vertical(id="new-experiment-modal"):
             yield Static("[b]New Experiment[/]", id="modal-title")
 
-            yield Label("Name")
-            yield Input(placeholder="my-experiment", id="name-input")
+            with VerticalScroll(id="new-experiment-form"):
+                yield Label("Name")
+                yield Input(placeholder="my-experiment", id="name-input")
 
-            yield Label("Description")
-            yield Input(placeholder="What are you experimenting with?", id="desc-input")
+                yield Label("Description")
+                yield Input(placeholder="What are you experimenting with?", id="desc-input")
 
-            yield Label("Tags (comma-separated)")
-            yield Input(placeholder="web, async, ml", id="tags-input")
+                yield Label("Tags (comma-separated)")
+                yield Input(placeholder="web, async, ml", id="tags-input")
 
-            yield Label("Seed")
-            yield SeedPicker(hide_workspace=is_detached(), id="seed-picker")
+                yield Label("Seed")
+                # Show WORKSPACE seeds whenever they exist (even on
+                # `--detached` launches with a discoverable workspace).
+                # `list_seeds()` already returns nothing under `local` when
+                # the cwd has no workspace context, so the WORKSPACE section
+                # auto-hides on truly detached runs.
+                yield SeedPicker(id="seed-picker")
 
-            yield Label("Python version")
-            yield Select(
-                self._get_python_options(),
-                value="",
-                id="python-select",
-                allow_blank=True,
-            )
+                yield Label("Python version")
+                yield Select(
+                    self._get_python_options(),
+                    value="",
+                    id="python-select",
+                    allow_blank=True,
+                )
 
-            yield Checkbox(
-                "Skip date prefix in directory name",
-                id="no-date-check",
-            )
+                yield Checkbox(
+                    "Skip date prefix in directory name",
+                    id="no-date-check",
+                )
 
-            with Vertical(classes="buttons"):
+            with Horizontal(classes="buttons"):
                 yield Button("Create", variant="primary", id="create-btn")
                 yield Button("Cancel", variant="default", id="cancel-btn")
 

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-05-18
+
+### Fixed
+- TUI "New Experiment" modal clipped the bottom of the form (the "Skip date prefix" checkbox and the Create / Cancel buttons) on short terminals — including the default size most users see when launching `novo --detached` from a small split pane. The modal sized itself to `height: auto; max-height: 90%` with a plain `Vertical` body, so once content exceeded the cap there was no scrollbar and the clipped widgets were silently invisible. The form fields now live inside a `VerticalScroll` that takes `1fr` of the modal, with the buttons pinned to the bottom at a fixed height, so on any terminal size the action buttons stay reachable and the form scrolls if needed.
+- SeedPicker opened scrolled past the first section. `_rebuild()` set `opts.highlighted = default_index` after populating the OptionList, and Textual's OptionList scrolls the viewport to keep the highlighted row visible — since the default lives at the bottom of the scope order (`local → user → remote → builtin`), the picker opened past the WORKSPACE / USER section headers, hiding the first line of the list. The picker now leaves `highlighted` unset on open and explicitly `scroll_home()`s the option list; the modal still falls back to the configured default when no row is selected (`seed_name=None` already triggers default-seed behaviour in `core.experiment.create`), and the `(default)` row badge continues to mark which seed will be used.
+
+### Changed
+- "New Experiment" modal is wider (100 cols, capped at 95% of the screen, up from 70). The previous 70-col width crammed seed rows — especially `[remote:<name>]` badges and longer descriptions — into truncated lines, and forced the form to scroll on terminals that should have been tall enough.
+- `SeedPicker` (used by the modal and the Seeds tab) reads much more clearly as a first-time user: section headers now lead with a coloured block bar (`█ WORKSPACE`, `█ USER`, `█ REMOTE: <name>`, `█ BUILTIN`) in the scope's accent colour; entries are indented under the bar; a blank row separates adjacent sections; and the per-row `[scope]` badge picks up the same scope colour so users scrolling through a filtered view (where the header may be off-screen) can still tell at a glance which scope a seed belongs to. The picker's option list is also two rows taller (12 vs 10) to make up for the new spacer rows.
+- New Experiment modal no longer hides the WORKSPACE section on `--detached` launches. Previously the modal forced `hide_workspace=is_detached()` on the SeedPicker, so running `novo --detached` from inside a workspace still stripped the entire WORKSPACE section — and with it the `[local]` badge — even though `current_workspace()` could happily resolve local seeds. The picker now uses the default `hide_workspace=False`; when the cwd is truly outside any workspace (auto-detached), `list_seeds()` already returns no `local` entries and the section auto-hides via `build_picker_rows()`, so nothing extra renders on a pure-detached run. Net effect: in detached-from-workspace launches you can now pick a `local:foo` seed, and the WORKSPACE section sits at the top of the picker (per the `local → user → remote → builtin` scope order).
+
 ## [0.2.2] - 2026-05-18
 
 ### Fixed
