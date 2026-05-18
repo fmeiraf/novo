@@ -548,6 +548,45 @@ def test_seed_add_is_removed(tmp_workspace):
 
 
 @patch("novo.core.experiment.uv.uv_init")
+def test_new_with_unknown_seed_errors_and_skips_creation(mock_uv, tmp_workspace):
+    """An identifier that doesn't resolve must abort before any files are written."""
+    result = runner.invoke(
+        app, ["new", "ghost-exp", "--no-date", "--seed", "user:does-not-exist"]
+    )
+    assert result.exit_code == 1
+    assert "seed not found" in result.output
+    assert not (tmp_workspace / "ghost-exp").exists()
+    mock_uv.assert_not_called()
+
+
+@patch("novo.core.experiment.uv.uv_init")
+def test_new_with_malformed_remote_identifier_errors(mock_uv, tmp_workspace):
+    """`remote:foo` (missing `/<seed>`) must error with the canonical fix-it message."""
+    result = runner.invoke(
+        app, ["new", "bad-exp", "--no-date", "--seed", "remote:lonely"]
+    )
+    assert result.exit_code == 1
+    assert "remote:<name>/<seed>" in result.output
+    assert not (tmp_workspace / "bad-exp").exists()
+    mock_uv.assert_not_called()
+
+
+@patch("novo.core.experiment.uv.uv_init")
+def test_new_detached_with_unknown_seed_errors_and_skips_creation(
+    mock_uv, tmp_unconfigured, monkeypatch
+):
+    """Same guarantee in detached mode: bad seed → no half-baked dir in cwd."""
+    monkeypatch.chdir(tmp_unconfigured)
+    result = runner.invoke(
+        app, ["new", "detached-ghost", "--no-date", "--seed", "user:does-not-exist"]
+    )
+    assert result.exit_code == 1
+    assert "seed not found" in result.output
+    assert not (tmp_unconfigured / "detached-ghost").exists()
+    mock_uv.assert_not_called()
+
+
+@patch("novo.core.experiment.uv.uv_init")
 def test_new_seed_ambiguity_errors_with_helpful_message(mock_uv, tmp_workspace, tmp_path):
     ws = tmp_path / "ambig-ws"
     ws.mkdir()

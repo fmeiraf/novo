@@ -100,14 +100,19 @@ def create(
     if exp_dir.exists():
         raise FileExistsError(f"Experiment directory already exists: {exp_dir}")
 
+    # Resolve the seed up front so a malformed or unknown `--seed` value
+    # fails cleanly before any files are written. Raises ValueError on
+    # parse / not-found / ambiguity.
+    from novo.core.seed import apply_seed, resolve_seed
+
+    scoped = resolve_seed(seed_request, workspace=workspace)
+
     exp_dir.mkdir(parents=True)
 
     uv.uv_init(exp_dir, python=python_version)
 
-    from novo.core.seed import apply_seed
-
-    scoped = apply_seed(seed_request, exp_dir, workspace=workspace)
-    seed_identifier = scoped.identifier if scoped is not None else seed_request
+    apply_seed(scoped, exp_dir)
+    seed_identifier = scoped.identifier
 
     experiment = Experiment(
         name=name,

@@ -185,20 +185,15 @@ def get_seed(name: str, workspace: Path | None = None) -> Seed | None:
         return None
 
 
-def apply_seed(identifier: str, target_dir: Path, workspace: Path | None = None) -> ScopedSeed | None:
-    """Apply a seed (by scoped or unscoped identifier) to an experiment directory.
+def apply_seed(scoped: ScopedSeed, target_dir: Path) -> None:
+    """Apply a pre-resolved seed to an experiment directory.
 
-    Returns the resolved ScopedSeed, or None if the seed could not be found.
-    Ambiguity errors propagate to the caller; missing-seed silently skips
-    to preserve current behavior.
+    Copies the template (respecting `files.exclude`), installs declared
+    dependencies via `uv add`, and runs `post_create.commands`. Callers
+    should resolve the identifier first via `resolve_seed()` so any
+    parse / not-found errors surface before the target directory is
+    created.
     """
-    try:
-        scoped = resolve_seed(identifier, workspace)
-    except ValueError as err:
-        if "ambiguous" in str(err):
-            raise
-        return None
-
     seed = scoped.seed
     seed_path = Path(seed.path)
     template_dir = seed_path / "template"
@@ -211,8 +206,6 @@ def apply_seed(identifier: str, target_dir: Path, workspace: Path | None = None)
 
     for cmd in seed.post_create.commands:
         subprocess.run(cmd, shell=True, cwd=target_dir, check=False, capture_output=True)
-
-    return scoped
 
 
 def _copy_template(src: Path, dst: Path, exclude: list[str]) -> None:
