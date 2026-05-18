@@ -314,7 +314,8 @@ class MainScreen(Screen):
         self.notify(
             "[b]e[/]xperiments  [b]s[/]eeds  [b]n[/]ew  [b]enter[/] open  "
             "[b]d[/]elete  [b]/[/]search  [b]q[/]uit\n"
-            "Seeds tab: [b]N[/]ew seed  [b]l[/]ink remote  [b]u[/]nlink  [b]r[/] sync remotes  "
+            "Seeds tab: [b]N[/]ew seed  [b]l[/]ink remote  [b]u[/]nlink  "
+            "[b]r[/] sync (highlighted remote, or all)  "
             "[b]t[/] focus tree  [b]l/enter[/] expand",
             title="Keybindings",
             timeout=8,
@@ -376,7 +377,26 @@ class MainScreen(Screen):
     def action_sync_remotes(self) -> None:
         if self._active_tab() != "tab-seeds":
             return
-        self._run_sync(None)
+        self._run_sync(self._highlighted_remote_name())
+
+    def _highlighted_remote_name(self) -> str | None:
+        """Registry name of the highlighted remote seed, or None for everything else."""
+        try:
+            seed_list = self.query_one("#seed-list", OptionList)
+        except Exception:
+            return None
+        if seed_list.highlighted is None:
+            return None
+        try:
+            opt = seed_list.get_option_at_index(seed_list.highlighted)
+        except IndexError:
+            return None
+        if opt is None or opt.disabled or opt.id is None:
+            return None
+        scoped = self._seeds_by_id.get(opt.id)
+        if scoped is None or scoped.scope != "remote":
+            return None
+        return scoped.remote
 
     def _run_sync(self, name: str | None) -> None:
         from novo.core.seed import sync_remote

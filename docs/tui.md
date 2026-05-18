@@ -54,7 +54,7 @@ Two-tab layout: **Experiments** (list + detail card, search bar) and **Seeds** (
 | `N` | Scaffold new seed (Seeds tab only) |
 | `l` | Link remote registry (Seeds tab only) |
 | `u` | Unlink the registry of the highlighted remote seed (Seeds tab only) |
-| `r` | Sync all linked remotes (Seeds tab only) |
+| `r` | Sync the highlighted remote (or all linked remotes if no remote seed is highlighted) (Seeds tab only) |
 
 The seeds tab uses `build_picker_rows()` (the same helper as the SeedPicker widget) so the WORKSPACE / USER / REMOTE: \<n> / BUILTIN section headers and `[scope]` badges match the picker.
 
