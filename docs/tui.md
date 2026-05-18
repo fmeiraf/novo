@@ -60,7 +60,7 @@ The seeds tab uses `build_picker_rows()` (the same helper as the SeedPicker widg
 
 ### DetachedScreen
 
-Minimal landing screen for `novo --detached` launches — no workspace registry to browse. Header reads `DETACHED — <cwd>` with four direct actions: New experiment here, Browse seeds (CLI hint), Link remote, Initialize workspace here.
+Minimal landing screen for `novo --detached` launches (and auto-detached runs, when no workspace can be resolved) — no workspace registry to browse. Header reads `DETACHED — <cwd>` with four direct actions: New experiment here, Browse seeds (CLI hint), Link remote, Initialize workspace here. On mount the screen focuses the primary "New experiment here" button so arrows / `j` / `k` move between buttons and Enter activates the focused one without a prior Tab.
 
 | Key | Action |
 |-----|--------|
@@ -68,15 +68,18 @@ Minimal landing screen for `novo --detached` launches — no workspace registry 
 | `s` | Browse seeds (shows a CLI hint) |
 | `l` | Link remote |
 | `i` | Initialize workspace here (flips to workspace mode + switches to MainScreen) |
+| `↑` / `k` | Focus previous button |
+| `↓` / `j` | Focus next button |
+| `enter` | Activate focused button |
 | `q` | Quit |
 
 ### NewExperimentScreen
 
-Modal fields: name, description, tags (comma-separated), seed (SeedPicker), Python version (Select).
+Modal fields: name, description, tags (comma-separated), seed (SeedPicker), Python version (Select), and a "Skip date prefix" checkbox (mirrors the `--no-date` CLI flag — directory name becomes `<name>` instead of `<YYYY-MM-DD>-<name>`).
 
 The SeedPicker is constructed with `hide_workspace=is_detached_forced()` so detached launches omit the WORKSPACE section.
 
-On submit, calls `core.experiment.create(seed_name=picker.selected_identifier, …)` — `.novo.toml` records the scoped form.
+On submit, calls `core.experiment.create(seed_name=picker.selected_identifier, no_date=…, detached=is_detached(), …)` — `.novo.toml` records the scoped form. `detached` is read live from `core.workspace.is_detached()` so the modal lands the experiment in cwd when the app was launched with `--detached` (or auto-detached), instead of falling through to workspace mode.
 
 ### NewSeedScreen
 
@@ -98,7 +101,7 @@ Reusable yes/no dialog. Accepts a message string, returns `True`/`False`. Binds 
 | `ExperimentCard` | Displays selected experiment details: name, created date, seed, Python version, tags, description, directory, `.claude`/`.agents` presence. |
 | `SearchBar` | Horizontal input with `> ` prompt. Posts `Changed(query)` on each keystroke. |
 | `StatusBar` | Three slots: mode chip (`WORKSPACE: foo` / `DETACHED`), key bindings (context-aware: `main`, `seeds`, `search`, `new`, `confirm`), and a transient sync note for `seed sync` results. Rendering is exposed via `compose_text()` for testability. |
-| `SeedPicker` | OptionList-based scope-aware picker. Sections rendered as disabled header rows; entries show `name  description  [scope-badge]` plus `(default)` on the resolved default. Type-ahead `Input` filters by name+description, dropping empty sections. `hide_workspace=True` removes the local section (used in detached mode). |
+| `SeedPicker` | OptionList-based scope-aware picker. Sections rendered as disabled header rows; entries show `name  description  [scope-badge]` plus `(default)` on the resolved default. Type-ahead `Input` filters by name+description, dropping empty sections. `hide_workspace=True` removes the local section (used in detached mode). `compact=True` (used by the Seeds tab, not the modal) drops the in-row description since the side detail pane shows it. |
 
 ### `build_picker_rows()` (in `seed_picker.py`)
 

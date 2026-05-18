@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - TUI "New Experiment" modal silently used workspace mode regardless of how the app was launched. `novo --detached new …` (and any auto-detached launch) would land the experiment in whatever workspace `cwd`'s walk-up could find a `.novo/` marker for, instead of in cwd as the detached contract promised. The modal now propagates `detached=is_detached()` to `core.experiment.create()` (matching the CLI) and the success notification reports the detached location.
 
+### Added
+- "Skip date prefix" checkbox on the New Experiment modal — surfaces the `--no-date` flag in the TUI so detached one-offs can opt out of the `YYYY-MM-DD-` directory prefix without dropping back to the shell.
+- Arrow / `j` / `k` navigation between buttons on the DetachedScreen, plus auto-focus on the primary "New experiment here" button on mount, so the screen is keyboard-drivable without an initial Tab.
+
+### Changed
+- Seeds tab rows are now compact (`name  [scope]  (default)`), with the description rendered in the side detail pane instead of crammed into the row. The list panel itself is also wider (1fr split, capped at 80 cols) and gets the same `option-list--option-highlighted` styling the experiments list has, so long remote-seed identifiers like `[remote:novo-seed-test]` stop wrapping or truncating. The New Experiment SeedPicker keeps the description in-row since it has no side detail pane.
+
 > [0.2.1] was published to TestPyPI only; this is its first PyPI cut.
 
 ## [0.2.1] - 2026-05-18
