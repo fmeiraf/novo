@@ -75,20 +75,27 @@ You can also point at a workspace explicitly with `--workspace <path>` or `NOVO_
 
 ```bash
 novo new image-classifier --tag ml --desc "ResNet experiments"
+novo new quick-spike --no-date                # skip the YYYY-MM-DD- prefix
+novo new pinned-run --python 3.12 --seed user:data-science
 ```
 
-novo creates a date-prefixed directory inside your workspace, sets up a `uv` project, applies the default seed, and commits the result.
+novo creates a date-prefixed directory inside your workspace, sets up a `uv` project, applies the default seed, and commits the result. Pass `--no-date` (per experiment) or `novo config set naming.date_prefix false` (globally) to drop the date prefix; pass `--python <ver>` to override `defaults.python`.
 
 ### 3. Set up a seed (optional)
 
 Seeds are reusable project templates — your favorite stack, scripts, and config files copied into every new experiment.
 
 ```bash
-novo seed list                      # see what's available
-novo seed init data-science         # scaffold a new empty seed
+novo seed list                                          # see what's available
+novo seed init data-science                             # scaffold a new empty seed
+novo seed init data-science --desc "Numpy + pandas"     # with a description
+novo seed init data-science --scope user                # force user scope
+novo seed init data-science --path ./my-registry/etl    # write the seed to a custom dir
 ```
 
-This creates `~/.local/share/novo/seeds/data-science/` with a `seed.toml` manifest and a `template/` directory. Edit the manifest to declare dependencies and post-create hooks:
+By default `seed init` writes to the workspace's `.novo/seeds/` when cwd is inside a workspace, otherwise to `~/.local/share/novo/seeds/`. Use `--scope local`/`--scope user` to force one, or `--path <dir>` to drop the seed anywhere on disk — that last form is what you want when [authoring a remote registry](#4-use-seeds-from-a-team-registry-optional).
+
+Without `--path`, `seed init data-science` creates `~/.local/share/novo/seeds/data-science/` with a `seed.toml` manifest and a `template/` directory. Edit the manifest to declare dependencies and post-create hooks:
 
 ```toml
 [seed]
@@ -137,7 +144,24 @@ novo seed sync team        # pull updates later
 novo seed unlink team      # drop the link
 ```
 
-See [`docs/seeds.md`](docs/seeds.md) for scope resolution, identifier syntax, and how to structure a registry repo.
+#### Authoring your own registry
+
+A registry is just a git repo whose top-level subdirectories each contain a seed (one `seed.toml` per subdir). Use `seed init --path` to scaffold seeds directly into the repo — no need to bounce through `user` or `local` scope first:
+
+```bash
+git clone git@github.com:team/novo-seeds.git
+cd novo-seeds
+
+novo seed init etl            --path ./etl            --desc "Standard ETL stack"
+novo seed init ml-experiment  --path ./ml-experiment  --desc "Pytorch + MLflow starter"
+
+# edit the generated seed.toml + template/ in each directory, then commit + push
+git add . && git commit -m "add etl + ml-experiment seeds" && git push
+```
+
+Anyone who's already linked the registry can pull your additions with `novo seed sync <name>` (or `r` in the TUI's Seeds tab).
+
+See [`docs/seeds.md`](docs/seeds.md) for scope resolution, identifier syntax, and the full registry layout.
 
 ---
 
