@@ -23,10 +23,17 @@ def _version_callback(value: bool) -> None:
 
 
 def require_workspace(cmd: str) -> None:
-    """Refuse to run a workspace-bound command when `--detached` is forced."""
+    """Refuse to run a workspace-bound command when no workspace is resolved.
+
+    Covers both explicit `--detached` and the auto-detach fallback (no
+    `.novo/` marker discovered and no configured `workspace.path`).
+    """
     from rich import print as rprint
 
-    from novo.core.workspace import is_detached_forced
+    from novo.core.workspace import is_detached, is_detached_forced
+
+    if not is_detached():
+        return
 
     if is_detached_forced():
         rprint(
@@ -36,7 +43,16 @@ def require_workspace(cmd: str) -> None:
         rprint(
             "[dim]Drop --detached, pass --workspace <path>, or cd into a workspace.[/dim]"
         )
-        raise typer.Exit(1)
+    else:
+        rprint(
+            f"[red]Error:[/red] `novo {cmd}` operates on a workspace, "
+            f"but none was found here."
+        )
+        rprint(
+            "[dim]Run `novo init` to set one up here, or set `workspace.path` "
+            "in config to point at an existing workspace.[/dim]"
+        )
+    raise typer.Exit(1)
 
 
 @app.callback()
@@ -63,7 +79,13 @@ def main(
     ),
 ) -> None:
     """Novo — manage experimental Python projects."""
-    from novo.core.workspace import set_detached_forced, set_workspace_override
+    from rich import print as rprint
+
+    from novo.core.workspace import (
+        is_auto_detached,
+        set_detached_forced,
+        set_workspace_override,
+    )
 
     explicit = workspace or os.environ.get("NOVO_WORKSPACE") or None
     set_workspace_override(explicit)
@@ -72,6 +94,16 @@ def main(
     if shell_init:
         typer.echo(get_shell_init())
         raise typer.Exit()
+
+    # Surface auto-detach to the user when running a workspace-relevant command.
+    # `init` would be self-contradicting; `config` doesn't care; `seed` and the
+    # TUI handle the messaging themselves.
+    quiet_subcommands = {"init", "config", "seed", None}
+    if ctx.invoked_subcommand not in quiet_subcommands and is_auto_detached():
+        rprint(
+            "[dim]ℹ no workspace found here — running in detached mode "
+            "(run `novo init` to set up a workspace).[/dim]"
+        )
 
     if ctx.invoked_subcommand is None:
         # Launch TUI when no subcommand

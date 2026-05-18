@@ -127,8 +127,8 @@ def test_workspace_flag_beats_env(mock_uv, tmp_workspace, tmp_path):
 
 
 @patch("novo.core.experiment.uv.uv_init")
-def test_cwd_walk_up_discovers_workspace(mock_uv, tmp_workspace, tmp_path, monkeypatch):
-    ws = tmp_path / "discovered-ws"
+def test_cwd_walk_up_discovers_workspace(mock_uv, tmp_unconfigured, monkeypatch):
+    ws = tmp_unconfigured / "discovered-ws"
     ws.mkdir()
     (ws / ".novo").mkdir()
     nested = ws / "deep" / "subdir"
@@ -284,8 +284,8 @@ def test_seed_init_local_scope_writes_into_workspace(tmp_workspace, tmp_path, mo
     assert (ws / ".novo" / "seeds" / "ws-only" / "seed.toml").is_file()
 
 
-def test_seed_init_default_scope_is_local_when_in_workspace(tmp_workspace, tmp_path, monkeypatch):
-    ws = tmp_path / "auto-local-ws"
+def test_seed_init_default_scope_is_local_when_in_workspace(tmp_unconfigured, monkeypatch):
+    ws = tmp_unconfigured / "auto-local-ws"
     ws.mkdir()
     (ws / ".novo").mkdir()
     monkeypatch.chdir(ws)
@@ -325,6 +325,53 @@ def test_new_with_scoped_seed_flag(mock_uv, tmp_workspace, tmp_path, monkeypatch
     assert data["experiment"]["seed"] == "local:local-one"
 
 
+# --- auto-detach (no workspace found) ---
+
+
+@patch("novo.core.experiment.uv.uv_init")
+def test_new_auto_detaches_when_no_workspace(mock_uv, tmp_unconfigured, monkeypatch):
+    """No marker in cwd, no workspace.path configured → experiment lands in cwd."""
+    monkeypatch.chdir(tmp_unconfigured)
+    result = runner.invoke(app, ["new", "auto-spike", "--no-date"])
+    assert result.exit_code == 0
+    assert (tmp_unconfigured / "auto-spike" / ".novo.toml").exists()
+    assert (tmp_unconfigured / "auto-spike" / ".git").is_dir()
+    assert "no workspace found" in result.output
+    assert "novo init" in result.output
+
+
+def test_list_auto_detached_refuses(tmp_unconfigured, monkeypatch):
+    """Read-only commands refuse cleanly when no workspace is found."""
+    monkeypatch.chdir(tmp_unconfigured)
+    result = runner.invoke(app, ["list"])
+    assert result.exit_code == 1
+    assert "novo list" in result.output
+    assert "novo init" in result.output
+
+
+def test_info_auto_detached_refuses(tmp_unconfigured, monkeypatch):
+    monkeypatch.chdir(tmp_unconfigured)
+    result = runner.invoke(app, ["info"])
+    assert result.exit_code == 1
+    assert "novo init" in result.output
+
+
+def test_init_does_not_emit_auto_detach_hint(tmp_unconfigured, monkeypatch):
+    """`novo init` is the fix for auto-detach; don't show the hint while running it."""
+    monkeypatch.chdir(tmp_unconfigured)
+    result = runner.invoke(app, ["init"])
+    assert result.exit_code == 0
+    assert "no workspace found" not in result.output
+
+
+def test_config_does_not_emit_auto_detach_hint(tmp_unconfigured, monkeypatch):
+    """Config commands are workspace-independent; no hint should leak through."""
+    monkeypatch.chdir(tmp_unconfigured)
+    result = runner.invoke(app, ["config", "show"])
+    assert result.exit_code == 0
+    assert "no workspace found" not in result.output
+
+
 # --- detached mode ---
 
 
@@ -356,7 +403,7 @@ def test_new_detached_at_writes_under_at(mock_uv, tmp_workspace, tmp_path, monke
 def test_new_at_without_detached_errors(tmp_workspace, tmp_path):
     result = runner.invoke(app, ["new", "x", "--at", str(tmp_path)])
     assert result.exit_code == 1
-    assert "--at requires --detached" in result.output
+    assert "--at requires detached mode" in result.output
 
 
 def test_list_in_detached_mode_errors(tmp_workspace):

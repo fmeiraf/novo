@@ -58,12 +58,23 @@ Environment variable `NOVO_WORKSPACE` is read as a fallback for `--workspace`.
 
 Every command resolves which workspace to use in this order (handled in `core/workspace.current_workspace()`):
 
-1. `--workspace <path>` flag
-2. `NOVO_WORKSPACE` env var
-3. Walk up from cwd looking for `.novo/`
-4. Fall back to `config.workspace.path` or the XDG default (`~/.local/share/novo/workspace/`)
+1. `--detached` flag → detached mode, no workspace.
+2. `--workspace <path>` flag / `NOVO_WORKSPACE` env var → that path.
+3. Walk up from cwd looking for `.novo/`.
+4. `config.workspace.path` if set (non-empty).
+5. Otherwise → **auto-detached at cwd**.
 
-`--detached` short-circuits this; only `novo new` is meaningful in detached mode.
+The XDG default `~/.local/share/novo/workspace/` is no longer a silent fallback; opt in by setting `workspace.path` to it explicitly.
+
+When step 5 kicks in, the root callback prints a one-line hint:
+
+```
+ℹ no workspace found here — running in detached mode (run `novo init` to set up a workspace).
+```
+
+The hint is suppressed for `init` / `config` / `seed` (and the TUI), which either handle the messaging themselves or don't care about workspaces.
+
+`novo new` proceeds as if `--detached` was passed (experiment lands in cwd with its own git repo, gated by `defaults.detached_git`). Workspace-bound commands (`list / info / search / delete / open`) refuse cleanly with a `novo init` tip.
 
 ## Scoped seed selection on `novo new`
 
@@ -99,4 +110,4 @@ Use an explicit scope like --seed local:shared.
 
 **Shell integration** — `novo open` requires a shell function (printed by `--shell-init`) because a subprocess can't change the parent shell's directory.
 
-**Detached guard** — workspace-bound commands call `require_workspace(<name>)` at entry and exit cleanly under `--detached`.
+**Detached guard** — workspace-bound commands call `require_workspace(<name>)` at entry and exit cleanly when `is_detached()` returns true (explicit `--detached` or auto-detached fallback). The error message differentiates the two cases so the user gets the right next step.

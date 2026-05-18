@@ -393,6 +393,11 @@ def init_seed(
                 from novo.core.workspace import current_workspace
 
                 workspace = current_workspace()
+            if workspace is None:
+                raise ValueError(
+                    "--scope local requires a workspace; run `novo init` first "
+                    "or use --scope user."
+                )
             root = workspace_seeds_dir(workspace)
             root.mkdir(parents=True, exist_ok=True)
             target = root / name

@@ -42,18 +42,32 @@ That's it — the novo source tree is no longer needed. Use `novo` from any dire
 
 ## First steps
 
-### 1. Set up a workspace
+### 1. Pick a workspace (optional)
 
-A workspace is any directory containing a `.novo/` marker — the same pattern as git's `.git/`. Multiple workspaces are supported; novo picks one per invocation via cwd discovery (walks up looking for `.novo/`), then falls back to a configured `workspace.path` or the XDG default (`~/.local/share/novo/workspace/`).
+novo stores experiments in a **workspace** — a directory marked with `.novo/` (same pattern as git's `.git/`). You don't have to set one up to get started: `novo new` works from any directory.
+
+When you run any `novo` command, it resolves the active workspace in this order:
+
+1. **cwd discovery** — walks up from the current directory looking for a `.novo/` marker. First hit wins.
+2. **configured home** — if nothing is found, falls back to `workspace.path` in `~/.config/novo/config.toml` (only if you've set it).
+3. **auto-detached** — if neither resolves, novo runs in detached mode against the current directory. `novo new` drops a self-contained experiment in cwd; read-only commands refuse with a `novo init` tip.
+
+So `novo new churn-analysis` in a brand-new terminal just works — the experiment lands right next to you, as its own self-contained project. novo prints a one-line hint the first time so you know what happened:
+
+```
+ℹ no workspace found here — running in detached mode (run `novo init` to set up a workspace).
+```
+
+Want experiments to live in a specific tree (e.g. one per project)? Turn any directory into a workspace:
 
 ```bash
-cd ~/code/experiments    # or wherever you want them
+cd ~/code/experiments
 novo init
 ```
 
-`novo init` writes the `.novo/` marker and initializes the directory as a git repo. Skip it entirely and novo will create + use the XDG default the first time you run `novo new`.
+`novo init` writes the `.novo/` marker and initializes the directory as a git repo. From then on, every `novo` command run inside that tree (or any subdirectory) operates on that workspace.
 
-You can also point at a workspace explicitly with `--workspace <path>` or `NOVO_WORKSPACE=<path>`, or operate outside any workspace with `--detached` (see [detached mode](#detached-mode) below).
+You can also point at a workspace explicitly with `--workspace <path>` or `NOVO_WORKSPACE=<path>`, or force detached mode with `--detached` (see [Detached mode](#detached-mode)).
 
 ### 2. Create your first experiment
 
@@ -92,6 +106,37 @@ Drop starter files into `template/` — they'll be copied into every new experim
 novo new churn-analysis --seed data-science
 ```
 
+### 4. Use seeds from a team registry (optional)
+
+A **remote seed registry** is a git repo whose top-level subdirectories each contain a seed. One repo can hold many seeds:
+
+```
+team-seeds/
+├── etl/
+│   ├── seed.toml
+│   └── template/
+├── ml-experiment/
+│   ├── seed.toml
+│   └── template/
+└── ...
+```
+
+Link it once with a local name:
+
+```bash
+novo seed link git@github.com:team/novo-seeds.git --name team
+```
+
+Every seed in the registry is now available as `remote:team/<seed-name>`:
+
+```bash
+novo new pricing-model --seed remote:team/ml-experiment
+novo seed sync team        # pull updates later
+novo seed unlink team      # drop the link
+```
+
+See [`docs/seeds.md`](docs/seeds.md) for scope resolution, identifier syntax, and how to structure a registry repo.
+
 ---
 
 ## Configuration
@@ -100,13 +145,13 @@ novo works out of the box, but a handful of settings let you tailor the defaults
 
 | Key | Type | Default | What it does |
 |-----|------|---------|--------------|
-| `workspace.path` | str | `""` (XDG default) | Optional "home" workspace used when cwd discovery finds nothing. Empty falls back to `~/.local/share/novo/workspace/`. Set explicitly with `novo config set workspace.path <path>`. |
+| `workspace.path` | str | `""` (none) | Optional "home" workspace used when cwd discovery finds nothing. Empty = no home workspace; commands auto-detach in cwd. Set explicitly with `novo config set workspace.path <path>`. |
 | `defaults.seed` | str | `"default"` | Seed used when `novo new` is called without `--seed`. Accepts scoped forms (e.g. `"user:data-science"`, `"remote:team/etl"`). |
 | `defaults.python` | str | `""` (system) | Python version passed to `uv init` for new experiments (e.g. `"3.12"`). Override per-experiment with `--python`. |
 | `defaults.auto_commit` | bool | `true` | Auto-commit the workspace on `novo new` / `novo delete`. |
 | `defaults.detached_git` | bool | `true` | In detached mode, init a git repo inside each created experiment and commit. |
 | `naming.date_prefix` | bool | `true` | Prefix experiment directories with today's date (`2026-05-06-foo`). Skip per-experiment with `--no-date`. |
-| `[[seeds.remotes]]` | table-list | `[]` | Linked remote seed registries. Managed via `novo seed link / unlink`. |
+| `[[seeds.remotes]]` | table-list | `[]` | Linked remote seed registries. Managed via `novo seed link / unlink`. See [`docs/seeds.md`](docs/seeds.md) for registry layout. |
 
 ### Inspecting and changing settings
 
@@ -185,14 +230,32 @@ Extra bindings on the **Seeds tab**: `N` scaffold seed, `l` link remote registry
 
 See [`docs/tui.md`](docs/tui.md) for the full screen and widget breakdown.
 
-### Detached mode
+---
 
-`novo --detached` skips workspace lookup entirely:
+## Detached mode
 
-- **CLI:** `novo --detached new <name>` creates a self-contained experiment in `(--at <path> or cwd)/<name>`. With `defaults.detached_git = true` (default), each experiment gets its own git repo and initial commit. `novo list/info/search/delete/open` refuse cleanly under `--detached`.
-- **TUI:** `novo --detached` launches a minimal landing screen with direct actions: new experiment here, link remote, initialize workspace here, browse seeds (CLI hint).
+Sometimes you don't want a workspace at all — just a one-off, self-contained experiment wherever you happen to be standing. That's what `--detached` is for.
 
-Drop `--detached` (or run `novo init` once) to get back to workspace mode.
+```bash
+cd ~/scratch
+novo --detached new spike-idea
+```
+
+What you get:
+
+- A fresh project directory at `~/scratch/spike-idea/` with its own `uv` env and seed-applied files.
+- Its own git repo + initial commit (when `defaults.detached_git = true`, the default).
+- No registration anywhere — novo's workspace listing won't track it. `novo list / info / search / delete / open` deliberately refuse under `--detached` to keep the boundary clear.
+
+Use `--at <path>` to drop the experiment somewhere other than cwd:
+
+```bash
+novo --detached new spike-idea --at ~/tmp
+```
+
+Running `novo --detached` with no subcommand launches a minimal TUI landing screen with the actions that make sense outside a workspace: new experiment here, link a remote registry, init a workspace here, browse seeds (CLI hint).
+
+Drop `--detached` (or run `novo init` once in that directory) when you want to go back to workspace mode.
 
 ---
 

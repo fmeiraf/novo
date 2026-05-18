@@ -31,12 +31,12 @@ def new(
     from pathlib import Path
 
     from novo.core.experiment import create
-    from novo.core.workspace import is_detached_forced
+    from novo.core.workspace import is_detached
 
-    detached = is_detached_forced()
+    detached = is_detached()
     at_path = Path(at).resolve() if at else None
     if at_path is not None and not detached:
-        rprint("[red]Error:[/red] --at requires --detached.")
+        rprint("[red]Error:[/red] --at requires detached mode.")
         raise typer.Exit(1)
 
     try:

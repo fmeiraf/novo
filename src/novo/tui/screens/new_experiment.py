@@ -45,7 +45,7 @@ class NewExperimentScreen(ModalScreen[bool]):
     ]
 
     def compose(self) -> ComposeResult:
-        from novo.core.workspace import is_detached_forced
+        from novo.core.workspace import is_detached
 
         with Vertical(id="new-experiment-modal"):
             yield Static("[b]New Experiment[/]", id="modal-title")
@@ -60,7 +60,7 @@ class NewExperimentScreen(ModalScreen[bool]):
             yield Input(placeholder="web, async, ml", id="tags-input")
 
             yield Label("Seed")
-            yield SeedPicker(hide_workspace=is_detached_forced(), id="seed-picker")
+            yield SeedPicker(hide_workspace=is_detached(), id="seed-picker")
 
             yield Label("Python version")
             yield Select(

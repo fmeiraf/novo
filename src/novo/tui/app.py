@@ -28,14 +28,14 @@ class NovoApp(App):
     ]
 
     def on_mount(self) -> None:
-        from novo.core.workspace import is_detached_forced
+        from novo.core.workspace import is_detached
         from novo.tui.screens.detached import DetachedScreen
         from novo.tui.screens.main import MainScreen
 
         self.register_theme(NOVO_DARK)
         self.theme = "novo-dark"
 
-        if is_detached_forced():
+        if is_detached():
             self.push_screen(DetachedScreen())
         else:
             self.push_screen(MainScreen())

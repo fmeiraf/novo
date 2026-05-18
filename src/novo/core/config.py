@@ -42,14 +42,18 @@ def save_config(config: NovoConfig) -> None:
         tomli_w.dump(data, f)
 
 
-def get_workspace_path(config: NovoConfig | None = None) -> Path:
-    """Resolve the workspace path from config or default."""
+def get_workspace_path(config: NovoConfig | None = None) -> Path | None:
+    """Return the configured `workspace.path`, or None if unset.
+
+    Returns None when the user hasn't set a "home" workspace explicitly — the
+    XDG default is no longer a silent fallback. Callers wanting the resolved
+    active workspace (with cwd discovery, override, etc.) should use
+    `novo.core.workspace.current_workspace()`.
+    """
     if config is None:
         config = load_config()
 
     if config.workspace.path:
         return Path(config.workspace.path)
 
-    from novo.utils.paths import default_workspace_dir
-
-    return default_workspace_dir()
+    return None

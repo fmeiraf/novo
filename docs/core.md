@@ -24,7 +24,7 @@ Manages the global `config.toml` (at `~/.config/novo/config.toml`).
 |----------|-------------|
 | `load_config()` | Load `NovoConfig` from TOML. Returns defaults if file is missing. |
 | `save_config(config)` | Persist config to TOML. Excludes per-remote `last_synced_at` (that lives in the per-remote metadata file). |
-| `get_workspace_path(config)` | Resolve workspace path from config or fall back to XDG default. |
+| `get_workspace_path(config)` | Return `config.workspace.path` as a `Path`, or `None` if unset. Use `core.workspace.current_workspace()` if you want the active workspace with full resolution. |
 
 ### workspace.py
 
@@ -34,16 +34,30 @@ MARKER_NAME = ".novo"
 
 A workspace is any directory containing a `.novo/` marker dir (same pattern as git's `.git/`). Resolution and detached-mode state are process-scoped via module globals (cleared between tests by `conftest.py`).
 
+**Resolution chain on every invocation:**
+
+1. `--detached` forced → detached mode, no workspace.
+2. `--workspace` / `NOVO_WORKSPACE` override → that path.
+3. Walk up from cwd looking for `.novo/`.
+4. `config.workspace.path` if non-empty.
+5. Otherwise → **auto-detached** at cwd.
+
+The XDG default `~/.local/share/novo/workspace/` is **not** a silent fallback;
+it's only the value `default_workspace_dir()` returns for callers that want
+to point `config.workspace.path` at it explicitly.
+
 | Function | Description |
 |----------|-------------|
 | `set_workspace_override(path)` | Pin a workspace for the current invocation (CLI sets it from `--workspace` / `NOVO_WORKSPACE`). |
 | `get_workspace_override()` | Read-only access to the override. |
 | `set_detached_forced(bool)` | Flip the process into detached mode (CLI sets it from `--detached`). |
-| `is_detached_forced()` | True if the current invocation was started with `--detached`. |
+| `is_detached_forced()` | True only when `--detached` was passed explicitly. |
+| `is_detached(cwd=None)` | True when the effective mode is detached — `--detached` forced OR no workspace resolved. |
+| `is_auto_detached(cwd=None)` | True when detached because no workspace was found (not from explicit `--detached`). Used by the CLI to show a one-line hint. |
 | `discover(start=None)` | Walk up from `start` (default cwd) looking for `.novo/`. Returns the workspace path or None. |
-| `current_workspace(cwd=None)` | Override → walk-up → `config.workspace.path` → XDG default. Always returns a path. |
+| `current_workspace(cwd=None)` | Override → walk-up → `config.workspace.path`. Returns `None` if nothing resolves (i.e. auto-detached). |
 | `resolve_mode(cwd=None)` | Returns `(is_detached, workspace_or_None)` for the current invocation. |
-| `ensure_initialized(target=None)` | Create the dir, write `.novo/` marker (with `seeds/` and `config.toml`), init git on first creation. Idempotent. Silently migrates pre-marker workspaces. |
+| `ensure_initialized(target=None)` | Create the dir, write `.novo/` marker (with `seeds/` and `config.toml`), init git on first creation. Idempotent. Raises `RuntimeError` when `target=None` and no workspace can be resolved. |
 
 ### experiment.py
 

@@ -127,7 +127,7 @@ novo --detached new "scratch" --at /tmp
 
 ```
 ~/.local/share/novo/
-├── workspace/                   # Default workspace (XDG fallback)
+├── workspace/                   # Optional "home" workspace (opt-in via config.workspace.path)
 │   ├── .novo/
 │   │   ├── seeds/               # local-scope seeds (per workspace)
 │   │   └── config.toml          # per-workspace overrides (placeholder)
@@ -155,7 +155,12 @@ novo --detached new "scratch" --at /tmp
 └── config.toml                  # Global configuration (incl. [[seeds.remotes]])
 ```
 
-Any directory with a `.novo/` marker is also a valid workspace; the layout above just shows the XDG default. Multiple workspaces are supported via cwd discovery, `--workspace`, or `NOVO_WORKSPACE`.
+The `~/.local/share/novo/workspace/` path is **not** used implicitly — it's only
+the default value `default_workspace_dir()` returns if you ever want to point
+`config.workspace.path` at it. Any directory with a `.novo/` marker is a valid
+workspace; multiple workspaces are supported via cwd discovery, `--workspace`,
+or `NOVO_WORKSPACE`. When no workspace can be resolved, novo auto-detaches
+into the current directory (see `docs/core.md` for the full resolution chain).
 
 ## Data Models
 
@@ -175,7 +180,7 @@ created_at = "2026-02-20T14:30:00.123456"
 
 ```toml
 [workspace]
-path = ""                          # Empty = XDG default
+path = ""                          # Empty = no "home" workspace; novo relies on cwd discovery and falls back to auto-detached mode
 
 [defaults]
 seed = "default"

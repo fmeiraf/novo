@@ -140,12 +140,14 @@ class ExperimentCard(VerticalScroll):
         parts.append(Text(""))
 
         # Workspace path
-        from novo.core.config import get_workspace_path
+        from novo.core.workspace import current_workspace
 
-        ws = Text()
-        ws.append("  Workspace: ", style="dim")
-        ws.append(str(get_workspace_path()), style="dim italic")
-        parts.append(ws)
+        ws_path = current_workspace()
+        if ws_path is not None:
+            ws = Text()
+            ws.append("  Workspace: ", style="dim")
+            ws.append(str(ws_path), style="dim italic")
+            parts.append(ws)
 
         content.update(Group(*parts))
 

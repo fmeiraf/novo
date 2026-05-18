@@ -4,15 +4,20 @@ A workspace is any directory containing a `.novo/` marker. Multiple workspaces
 are supported; `.novo/` is to novo what `.git/` is to git.
 
 Resolution order on every CLI/TUI invocation:
-1. Explicit override (CLI `--workspace` or `NOVO_WORKSPACE` env), if set.
-2. Walk up from cwd looking for `.novo/`.
-3. Fall back to `config.workspace.path` or the XDG default workspace.
+1. `--detached` flag → detached mode, no workspace.
+2. `--workspace` / `NOVO_WORKSPACE` override → that path.
+3. Walk up from cwd looking for `.novo/`.
+4. `config.workspace.path` if non-empty.
+5. Otherwise → auto-detached at cwd.
+
+The XDG default (`~/.local/share/novo/workspace/`) is NOT a silent fallback;
+opt in by setting `workspace.path` to it explicitly.
 """
 
 from pathlib import Path
 
 from novo.core import git
-from novo.core.config import get_workspace_path, load_config, save_config
+from novo.core.config import load_config, save_config
 
 MARKER_NAME = ".novo"
 
@@ -34,28 +39,16 @@ def get_workspace_override() -> Path | None:
 def set_detached_forced(value: bool) -> None:
     """Set the process-scoped `--detached` flag.
 
-    When forced, all workspace-bound commands should refuse to run; only
-    `novo new` proceeds (creating a self-contained experiment in cwd).
+    When forced, every command treats the invocation as detached regardless
+    of whether a workspace could be discovered.
     """
     global _detached_forced
     _detached_forced = bool(value)
 
 
 def is_detached_forced() -> bool:
-    """Return True when the current invocation was started with `--detached`."""
+    """True only when `--detached` was passed explicitly."""
     return _detached_forced
-
-
-def resolve_mode(cwd: Path | None = None) -> tuple[bool, Path | None]:
-    """Return `(is_detached, workspace)` for the current invocation.
-
-    `--detached` forces detached mode (workspace=None). Otherwise resolves
-    a workspace via override → cwd walk-up → config.workspace.path → XDG
-    default and returns (False, workspace).
-    """
-    if _detached_forced:
-        return True, None
-    return False, current_workspace(cwd)
 
 
 def discover(start: Path | None = None) -> Path | None:
@@ -71,12 +64,15 @@ def discover(start: Path | None = None) -> Path | None:
     return None
 
 
-def current_workspace(cwd: Path | None = None) -> Path:
-    """Resolve the active workspace path for this invocation.
+def current_workspace(cwd: Path | None = None) -> Path | None:
+    """Resolve the active workspace path for this invocation, or None.
 
-    Order: override → cwd walk-up → config.workspace.path → XDG default.
-    Always returns a path (never None); the caller is responsible for
-    ensuring it actually exists/has a marker via `ensure_initialized`.
+    Order: --workspace override → cwd walk-up → config.workspace.path.
+    Returns None when nothing resolves (i.e. the invocation auto-detaches).
+
+    Note: `--detached` forced is intentionally NOT consulted here — this
+    returns *where the workspace would be* if you weren't detached. Use
+    `is_detached()` / `resolve_mode()` to check effective mode.
     """
     if _workspace_override is not None:
         return _workspace_override
@@ -85,7 +81,35 @@ def current_workspace(cwd: Path | None = None) -> Path:
     if found is not None:
         return found
 
-    return get_workspace_path(load_config())
+    config = load_config()
+    if config.workspace.path:
+        return Path(config.workspace.path).resolve()
+
+    return None
+
+
+def is_detached(cwd: Path | None = None) -> bool:
+    """True when running in detached mode — forced or inferred."""
+    if _detached_forced:
+        return True
+    return current_workspace(cwd) is None
+
+
+def is_auto_detached(cwd: Path | None = None) -> bool:
+    """True when detached because nothing resolved (not from `--detached`).
+
+    Lets the CLI surface a friendly hint only when the user didn't ask
+    for detached mode explicitly.
+    """
+    return (not _detached_forced) and current_workspace(cwd) is None
+
+
+def resolve_mode(cwd: Path | None = None) -> tuple[bool, Path | None]:
+    """Return `(is_detached, workspace_or_None)` for the current invocation."""
+    if _detached_forced:
+        return True, None
+    ws = current_workspace(cwd)
+    return (ws is None, ws)
 
 
 def ensure_initialized(target: Path | None = None) -> Path:
@@ -95,10 +119,20 @@ def ensure_initialized(target: Path | None = None) -> Path:
     empty per-workspace `config.toml` and `seeds/` dir), and initializes
     git on first creation. Idempotent — safe to call repeatedly.
 
-    Existing default workspaces from older versions get their `.novo/`
-    marker silently added the first time this function touches them.
+    Raises:
+        RuntimeError: when `target` is None and no workspace can be resolved
+            (the invocation is auto-detached). Callers should check
+            `is_detached()` before calling, or pass an explicit target.
     """
-    workspace = (target or current_workspace()).resolve()
+    if target is None:
+        resolved = current_workspace()
+        if resolved is None:
+            raise RuntimeError(
+                "no workspace resolved — pass a target, run `novo init`, "
+                "or set workspace.path in config"
+            )
+        target = resolved
+    workspace = Path(target).resolve()
 
     workspace.mkdir(parents=True, exist_ok=True)
 
