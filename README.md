@@ -8,7 +8,7 @@
 
 Install once with `uv`, then use `novo` from any directory to scaffold isolated, git-tracked Python experiments from reusable seed templates — drive it from the command line or a built-in TUI.
 
-[![PyPI](https://img.shields.io/pypi/v/novo?style=flat-square&color=5DE4C7)](https://pypi.org/project/novo/)
+[![PyPI](https://img.shields.io/pypi/v/novo?style=flat-square&color=5DE4C7&cacheSeconds=300)](https://pypi.org/project/novo/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org)
 [![Built with uv](https://img.shields.io/badge/built%20with-uv-DE5FE9?style=flat-square)](https://docs.astral.sh/uv/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
