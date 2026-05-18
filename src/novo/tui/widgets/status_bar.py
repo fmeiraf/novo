@@ -45,18 +45,18 @@ class StatusBar(Static):
         self._sync_note: str | None = None
 
     def on_mount(self) -> None:
-        self._render()
+        self._repaint()
 
     def set_mode(self, text: str, *, detached: bool = False) -> None:
         """Set the leading mode chip (e.g. `WORKSPACE: foo` or `DETACHED`)."""
         self._mode = text
         self._mode_detached = detached
-        self._render()
+        self._repaint()
 
     def set_sync_note(self, text: str | None) -> None:
         """Set a transient note (sync results) appended after the bindings."""
         self._sync_note = text
-        self._render()
+        self._repaint()
 
     def set_context(self, context: str = "main") -> None:
         """Update keybindings for the current context."""
@@ -78,7 +78,7 @@ class StatusBar(Static):
             ])
         else:
             self._suffix = self._default_text
-        self._render()
+        self._repaint()
 
     def compose_text(self) -> str:
         """Return the rendered markup string (testable without mounting)."""
@@ -90,5 +90,9 @@ class StatusBar(Static):
             parts.append(f"[dim]{self._sync_note}[/]")
         return "  ".join(parts)
 
-    def _render(self) -> None:
+    def _repaint(self) -> None:
+        # NOTE: do not name this `_render` — Textual's Widget._render() is the
+        # framework hook that returns the Visual to draw. Overriding it (even
+        # to call self.update) shadows the base implementation and the widget
+        # renders as None.
         self.update(self.compose_text())

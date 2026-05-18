@@ -42,3 +42,14 @@ def test_status_bar_clears_sync_note():
     bar.set_sync_note("noisy")
     bar.set_sync_note(None)
     assert "noisy" not in bar.compose_text()
+
+
+def test_status_bar_does_not_shadow_textual_widget_render():
+    # Textual's Widget._render is the framework hook that returns the
+    # Visual to draw; if a subclass overrides it the widget renders as
+    # None and the app crashes with `AttributeError: 'NoneType' object
+    # has no attribute 'render_strips'`. Make sure StatusBar inherits
+    # the base implementation instead of defining its own.
+    from textual.widget import Widget
+
+    assert StatusBar._render is Widget._render
