@@ -40,14 +40,20 @@ def _scope_header(scope: str, remote: str | None) -> Text:
     return text
 
 
-def _option_label(scoped: ScopedSeed, is_default: bool) -> Text:
-    """Format one seed as `name  description  [scope]  (default)`."""
+def _option_label(scoped: ScopedSeed, is_default: bool, *, compact: bool = False) -> Text:
+    """Format one seed row.
+
+    Default: `name  description  [scope]  (default)`.
+    Compact (used by the Seeds tab, which renders the description in
+    a side panel): `name  [scope]  (default)`.
+    """
     text = Text()
     text.append(scoped.seed.name, style="cyan")
-    desc = (scoped.seed.description or "").strip()
-    if desc:
-        text.append("  ")
-        text.append(desc)
+    if not compact:
+        desc = (scoped.seed.description or "").strip()
+        if desc:
+            text.append("  ")
+            text.append(desc)
     badge = scoped.scope if scoped.scope != "remote" else f"remote:{scoped.remote}"
     text.append("  ")
     text.append(f"[{badge}]", style="dim")
@@ -63,6 +69,7 @@ def build_picker_rows(
     filter_query: str = "",
     *,
     hide_workspace: bool = False,
+    compact: bool = False,
 ) -> list[PickerRow]:
     """Group and label seeds for the SeedPicker's OptionList.
 
@@ -95,7 +102,12 @@ def build_picker_rows(
             )
             last_key = key
         is_default = scoped.identifier == default_identifier
-        rows.append(PickerRow(label=_option_label(scoped, is_default), id=scoped.identifier))
+        rows.append(
+            PickerRow(
+                label=_option_label(scoped, is_default, compact=compact),
+                id=scoped.identifier,
+            )
+        )
     return rows
 
 

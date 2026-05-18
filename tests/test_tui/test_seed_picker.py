@@ -98,6 +98,19 @@ def test_build_rows_remote_badge_includes_remote_name():
     assert "[remote:team]" in _label(rows[1])
 
 
+def test_build_rows_compact_drops_description_from_label():
+    # The Seeds tab renders description in a side detail pane, so the
+    # row itself stays terse. Make sure compact=True actually strips
+    # it (otherwise rows balloon and the list panel looks crammed).
+    seeds = [_scoped("alpha", "user", description="machine learning starter")]
+    compact_rows = build_picker_rows(seeds, compact=True)
+    full_rows = build_picker_rows(seeds, compact=False)
+    assert "machine learning starter" not in _label(compact_rows[1])
+    assert "machine learning starter" in _label(full_rows[1])
+    # Compact still keeps the badge.
+    assert "[user]" in _label(compact_rows[1])
+
+
 def test_build_rows_hide_workspace_drops_local_section():
     seeds = [
         _scoped("alpha", "local"),

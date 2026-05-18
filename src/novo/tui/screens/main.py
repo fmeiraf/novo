@@ -178,7 +178,7 @@ class MainScreen(Screen):
         except ValueError:
             default_id = None
 
-        rows = build_picker_rows(self._seeds, default_identifier=default_id)
+        rows = build_picker_rows(self._seeds, default_identifier=default_id, compact=True)
 
         seed_list = self.query_one("#seed-list", OptionList)
         seed_list.clear_options()
