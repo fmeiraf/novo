@@ -8,7 +8,8 @@ remotes, or initialize the cwd as a workspace.
 from pathlib import Path
 
 from textual.app import ComposeResult
-from textual.containers import Vertical, VerticalScroll
+from textual.binding import Binding
+from textual.containers import Vertical
 from textual.screen import Screen
 from textual.widgets import Button, Header, Static
 
@@ -33,17 +34,46 @@ class DetachedScreen(Screen):
     }
     """
 
+    # Order matters: this is the cycle order for up/down navigation.
+    _BUTTON_IDS = ("btn-new", "btn-seeds", "btn-link", "btn-init")
+
     BINDINGS = [
         ("n", "new_experiment", "New experiment here"),
         ("s", "browse_seeds", "Browse seeds"),
         ("l", "link_remote", "Link remote"),
         ("i", "init_workspace", "Init workspace here"),
+        # priority=True so arrow keys move focus between buttons regardless
+        # of which widget currently holds focus. Use an explicit action that
+        # cycles a known list of button IDs instead of relying on Textual's
+        # focus_chain / action_focus_next — the chain-based fallback was
+        # observed not to move focus in practice (likely because containers
+        # in the tree shadowed the action), so this is the bulletproof path.
+        Binding("up", "cycle_focus(-1)", "Up", show=False, priority=True),
+        Binding("down", "cycle_focus(1)", "Down", show=False, priority=True),
+        Binding("k", "cycle_focus(-1)", "Up", show=False, priority=True),
+        Binding("j", "cycle_focus(1)", "Down", show=False, priority=True),
     ]
+
+    def action_cycle_focus(self, direction: int) -> None:
+        """Cycle focus through the action buttons in `_BUTTON_IDS` order."""
+        ids = self._BUTTON_IDS
+        focused = self.focused
+        if focused is None or focused.id not in ids:
+            target_id = ids[0] if direction > 0 else ids[-1]
+        else:
+            i = ids.index(focused.id)
+            target_id = ids[(i + direction) % len(ids)]
+        try:
+            self.query_one(f"#{target_id}", Button).focus()
+        except Exception:
+            pass
 
     def compose(self) -> ComposeResult:
         yield Header()
         cwd = Path.cwd().resolve()
-        with VerticalScroll(id="detached-body"):
+        # Use plain Vertical (not VerticalScroll) so the container does not
+        # claim up/down for scrolling — those go to focus_previous/next.
+        with Vertical(id="detached-body"):
             yield Static(f"[b]DETACHED[/]  [dim]{cwd}[/]", id="detached-title")
             yield Static(
                 "No workspace was discovered. Pick an action below or run "
@@ -61,6 +91,11 @@ class DetachedScreen(Screen):
         status = self.query_one("#status-bar", StatusBar)
         status.set_mode(f"DETACHED — {Path.cwd().name}", detached=True)
         status.set_context("main")
+        # Focus the primary button so arrows/Enter work without a prior Tab.
+        try:
+            self.query_one("#btn-new", Button).focus()
+        except Exception:
+            pass
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         handler = {
